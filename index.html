@@ -10,15 +10,24 @@
   <meta name="apple-mobile-web-app-title" content="Expiry Tracker">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="apple-touch-icon" href="icons/icon-192.jpg">
+  <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 </head>
 <body>
   <h1>Food Expiry Tracker</h1>
   <form id="foodForm">
     <button type="button" id="sortBtn">Sort by Expiry</button>
     <input type="text" id="item" placeholder="Item Name" required>
-    <input type="date" id="expiry" required>
+    <div class="expiry-input-group">
+      <input type="date" id="expiry" required>
+      <button type="button" id="cameraBtn" title="Scan expiry date from image">📷</button>
+      <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;">
+    </div>
+    <div id="ocrStatus" class="ocr-status"></div>
     <button type="submit">Add</button>
   </form>
+  <div class="search-container">
+    <input type="text" id="searchInput" placeholder="🔍 Search items...">
+  </div>
   <ul id="itemList"></ul>
 
   <script>
@@ -26,20 +35,36 @@
     const itemList = document.getElementById('itemList');
 
     
-    function loadItems() {
+    function loadItems(searchTerm = '') {
       const sortButton = document.getElementById('sortBtn');
       sortButton.onclick = () => {
         const items = JSON.parse(localStorage.getItem('foodItems') || '[]');
         items.sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
         localStorage.setItem('foodItems', JSON.stringify(items));
-        loadItems();
+        loadItems(document.getElementById('searchInput').value);
       };
 
       const items = JSON.parse(localStorage.getItem('foodItems') || '[]');
       itemList.innerHTML = '';
       const today = new Date();
+      
+      // Filter items based on search term
+      const filteredItems = items.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
 
-      items.forEach(({ name, expiry }, index) => {
+      if (filteredItems.length === 0 && searchTerm) {
+        const li = document.createElement('li');
+        li.textContent = 'No items found';
+        li.style.textAlign = 'center';
+        li.style.color = '#888';
+        itemList.appendChild(li);
+        return;
+      }
+
+      filteredItems.forEach(({ name, expiry }) => {
+        // Find the original index for deletion
+        const index = items.findIndex(item => item.name === name && item.expiry === expiry);
         const li = document.createElement('li');
         const expDate = new Date(expiry);
         li.textContent = `${name} - Expires on ${expiry}`;
@@ -57,6 +82,126 @@
         itemList.appendChild(li);
       });
     }
+
+    // OCR Functionality
+    const cameraBtn = document.getElementById('cameraBtn');
+    const imageInput = document.getElementById('imageInput');
+    const ocrStatus = document.getElementById('ocrStatus');
+    const expiryInput = document.getElementById('expiry');
+
+    cameraBtn.addEventListener('click', () => {
+      imageInput.click();
+    });
+
+    imageInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      ocrStatus.textContent = '🔍 Scanning image...';
+      ocrStatus.className = 'ocr-status scanning';
+
+      try {
+        const result = await Tesseract.recognize(file, 'eng', {
+          logger: (m) => {
+            if (m.status === 'recognizing text') {
+              ocrStatus.textContent = `🔍 Processing... ${Math.round(m.progress * 100)}%`;
+            }
+          }
+        });
+
+        const text = result.data.text;
+        console.log('OCR Text:', text);
+
+        // Extract date from text
+        const date = extractDate(text);
+        
+        if (date) {
+          expiryInput.value = date;
+          ocrStatus.textContent = '✅ Date detected: ' + date;
+          ocrStatus.className = 'ocr-status success';
+        } else {
+          ocrStatus.textContent = '⚠️ No date found. Please enter manually.';
+          ocrStatus.className = 'ocr-status warning';
+        }
+      } catch (error) {
+        console.error('OCR Error:', error);
+        ocrStatus.textContent = '❌ Error scanning image. Try again.';
+        ocrStatus.className = 'ocr-status error';
+      }
+
+      // Clear status after 5 seconds
+      setTimeout(() => {
+        ocrStatus.textContent = '';
+        ocrStatus.className = 'ocr-status';
+      }, 5000);
+    });
+
+    function extractDate(text) {
+      // Common date patterns
+      const patterns = [
+        // YYYY-MM-DD, YYYY/MM/DD
+        /\b(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\b/,
+        // DD-MM-YYYY, DD/MM/YYYY
+        /\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\b/,
+        // MM-DD-YYYY, MM/DD/YYYY
+        /\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\b/,
+        // DD MMM YYYY, DD MMMM YYYY
+        /\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})\b/i,
+        // MMM DD YYYY, MMMM DD YYYY
+        /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2}),?\s+(\d{4})\b/i,
+      ];
+
+      const monthMap = {
+        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+        'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+        'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+      };
+
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          let year, month, day;
+
+          // Handle different date formats
+          if (pattern.source.includes('Jan|Feb')) {
+            // Month name formats
+            if (pattern.source.startsWith('\\b(\\d{1,2})')) {
+              // DD MMM YYYY
+              day = match[1].padStart(2, '0');
+              month = monthMap[match[2].toLowerCase().slice(0, 3)];
+              year = match[3];
+            } else {
+              // MMM DD YYYY
+              month = monthMap[match[1].toLowerCase().slice(0, 3)];
+              day = match[2].padStart(2, '0');
+              year = match[3];
+            }
+          } else if (match[1].length === 4) {
+            // YYYY-MM-DD
+            year = match[1];
+            month = match[2].padStart(2, '0');
+            day = match[3].padStart(2, '0');
+          } else {
+            // DD-MM-YYYY or MM-DD-YYYY
+            // Assume DD-MM-YYYY for European format
+            day = match[1].padStart(2, '0');
+            month = match[2].padStart(2, '0');
+            year = match[3];
+          }
+
+          // Return in HTML date input format (YYYY-MM-DD)
+          return `${year}-${month}-${day}`;
+        }
+      }
+
+      return null;
+    }
+
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', (e) => {
+      loadItems(e.target.value);
+    });
 
     form.addEventListener('submit', e => {
       e.preventDefault();
