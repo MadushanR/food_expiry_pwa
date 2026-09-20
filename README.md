@@ -5,13 +5,17 @@ FreshCheck is a private, local-first Progressive Web App for tracking food expir
 ## Features
 
 - Groups active food into Expired, Use soon, and Later
+- Opens on a focused Today view for expired, due-today, and next-three-day items
 - Stores inventory in IndexedDB and migrates the original `localStorage` records automatically
 - Add and edit names, dates, quantities, units, locations, and notes
-- Mark food as used, restore it, or delete it with an undo window
+- Mark food as used, wasted, or frozen, then restore it from History
+- Shows a lightweight 30-day outcome summary
+- Offers recent-food shortcuts for faster repeat entry
 - Search, filter, and sort the inventory
 - Export and restore a complete JSON backup
 - Offline app shell, explicit update prompt, light/dark mode, and iPhone safe-area support
-- Optional camera OCR with manual date confirmation; scanning requires a network connection
+- Optional camera OCR with candidate-date confirmation; scanning requires a network connection
+- Automated tests run for every pull request
 
 ## Run locally
 

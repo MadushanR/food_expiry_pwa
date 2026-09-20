@@ -1,4 +1,4 @@
-const CACHE_NAME = "freshcheck-shell-v2";
+const CACHE_NAME = "freshcheck-shell-v3";
 const APP_SHELL = [
   "./", "./index.html", "./style.css", "./app.js", "./utils.js", "./storage.js",
   "./manifest.json", "./icons/logo.png", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"

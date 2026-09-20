@@ -53,7 +53,7 @@ export function normalizeItem(raw = {}) {
     unit: String(raw.unit || "").trim(),
     location: String(raw.location || "Fridge"),
     notes: String(raw.notes || "").trim(),
-    status: ["active", "used"].includes(raw.status) ? raw.status : "active",
+    status: ["active", "used", "wasted", "frozen"].includes(raw.status) ? raw.status : "active",
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
     completedAt: raw.completedAt || null,
@@ -77,7 +77,28 @@ export function groupActiveItems(items, now = new Date()) {
   return groups;
 }
 
-export function extractOCRDate(text, now = new Date()) {
+export function outcomeCounts(items, now = new Date(), days = 30) {
+  const cutoff = new Date(now.getTime() - days * DAY_MS);
+  return items.reduce((counts, item) => {
+    if (item.status !== "active" && item.completedAt && new Date(item.completedAt) >= cutoff) counts[item.status] += 1;
+    return counts;
+  }, { used: 0, wasted: 0, frozen: 0 });
+}
+
+export function recentFoodTemplates(items, limit = 6) {
+  const seen = new Set();
+  return [...items]
+    .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
+    .filter((item) => {
+      const key = item.name.trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+export function extractOCRDates(text, now = new Date()) {
   const candidates = [];
   const isoPattern = /\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/g;
   const numericPattern = /\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2}|\d{2})\b/g;
@@ -97,5 +118,9 @@ export function extractOCRDate(text, now = new Date()) {
     else add(match[3], second, first);
   }
   for (const match of text.matchAll(monthPattern)) add(match[3], months[match[2].slice(0, 3).toLowerCase()], match[1]);
-  return [...new Set(candidates)].sort()[0] || null;
+  return [...new Set(candidates)].sort();
+}
+
+export function extractOCRDate(text, now = new Date()) {
+  return extractOCRDates(text, now)[0] || null;
 }
