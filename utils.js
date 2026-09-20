@@ -60,6 +60,25 @@ export function normalizeItem(raw = {}) {
   };
 }
 
+export function normalizeGroceryItem(raw = {}) {
+  const now = new Date().toISOString();
+  return {
+    id: String(raw.id || makeId()),
+    name: String(raw.name || "").trim(),
+    quantity: String(raw.quantity || "").trim(),
+    store: String(raw.store || "Other").trim() || "Other",
+    have: Boolean(raw.have),
+    createdAt: raw.createdAt || now,
+    updatedAt: raw.updatedAt || now,
+  };
+}
+
+export function validateGroceryItem(item) {
+  if (!item.name) return "Enter an item name.";
+  if (!item.store) return "Choose a store.";
+  return "";
+}
+
 export function validateItem(item) {
   if (!item.name) return "Enter a food name.";
   if (!parseLocalDate(item.expiryDate)) return "Choose a valid expiry date.";
@@ -96,31 +115,4 @@ export function recentFoodTemplates(items, limit = 6) {
       return true;
     })
     .slice(0, limit);
-}
-
-export function extractOCRDates(text, now = new Date()) {
-  const candidates = [];
-  const isoPattern = /\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/g;
-  const numericPattern = /\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2}|\d{2})\b/g;
-  const monthPattern = /\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(20\d{2}|\d{2})\b/gi;
-  const months = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
-  const add = (year, month, day) => {
-    const fullYear = Number(year) < 100 ? 2000 + Number(year) : Number(year);
-    const value = `${fullYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const date = parseLocalDate(value);
-    if (date && daysUntil(value, now) >= -365 && daysUntil(value, now) <= 3650) candidates.push(value);
-  };
-  for (const match of text.matchAll(isoPattern)) add(match[1], match[2], match[3]);
-  for (const match of text.matchAll(numericPattern)) {
-    const first = Number(match[1]); const second = Number(match[2]);
-    if (first > 12) add(match[3], second, first);
-    else if (second > 12) add(match[3], first, second);
-    else add(match[3], second, first);
-  }
-  for (const match of text.matchAll(monthPattern)) add(match[3], months[match[2].slice(0, 3).toLowerCase()], match[1]);
-  return [...new Set(candidates)].sort();
-}
-
-export function extractOCRDate(text, now = new Date()) {
-  return extractOCRDates(text, now)[0] || null;
 }

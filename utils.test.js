@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  addDaysISO, daysUntil, expiryState, extractOCRDate, extractOCRDates, groupActiveItems,
-  normalizeItem, outcomeCounts, parseLocalDate, recentFoodTemplates, relativeExpiry, validateItem
+  addDaysISO, daysUntil, expiryState, groupActiveItems, normalizeGroceryItem,
+  normalizeItem, outcomeCounts, parseLocalDate, recentFoodTemplates, relativeExpiry,
+  validateGroceryItem, validateItem
 } from "./utils.js";
+import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
 const now = new Date(2026, 8, 20, 12);
 
@@ -39,11 +41,8 @@ test("active items are grouped without used items", () => {
   assert.deepEqual(Object.fromEntries(Object.entries(groups).map(([key, value]) => [key, value.length])), { expired: 1, soon: 1, later: 1 });
 });
 
-test("date shortcuts and OCR return valid ISO dates", () => {
+test("date shortcuts return valid ISO dates", () => {
   assert.equal(addDaysISO(7, now), "2026-09-27");
-  assert.equal(extractOCRDate("BEST BEFORE 24/09/2026", now), "2026-09-24");
-  assert.equal(extractOCRDate("EXP 2026-10-03", now), "2026-10-03");
-  assert.deepEqual(extractOCRDates("PACK 2026-10-03 USE BY 04/10/2026", now), ["2026-10-03", "2026-10-04"]);
 });
 
 test("outcomes include used, wasted, and frozen within the selected period", () => {
@@ -65,4 +64,22 @@ test("recent food templates are unique and ordered by latest update", () => {
     normalizeItem({ name: "milk", expiry: "2026-09-25", updatedAt: "2026-09-20T00:00:00Z" }),
   ]);
   assert.deepEqual(templates.map((item) => item.name), ["milk", "Eggs"]);
+});
+
+test("default grocery list preserves stores, quantities, and have state", () => {
+  assert.equal(DEFAULT_GROCERY_ITEMS.length, 57);
+  assert.equal(DEFAULT_GROCERY_ITEMS.filter((item) => item.store === "Dollarama").length, 9);
+  assert.equal(DEFAULT_GROCERY_ITEMS.filter((item) => !item.have).length, 23);
+  assert.equal(DEFAULT_GROCERY_ITEMS.filter((item) => item.store === "Dollarama" && !item.have).length, 0);
+  assert.equal(DEFAULT_GROCERY_ITEMS.find((item) => item.name === "Tomato").quantity, "3");
+  assert.equal(DEFAULT_GROCERY_ITEMS.find((item) => item.name === "Mixed Vegetables").have, true);
+  assert.equal(DEFAULT_GROCERY_ITEMS.find((item) => item.name === "Chicken Breast").have, false);
+});
+
+test("grocery items normalize and validate independently from food inventory", () => {
+  const item = normalizeGroceryItem({ name: " Milk ", store: "Walmart", quantity: "2", have: false });
+  assert.equal(item.name, "Milk");
+  assert.equal(item.quantity, "2");
+  assert.equal(validateGroceryItem(item), "");
+  assert.equal(validateGroceryItem(normalizeGroceryItem({ name: "", store: "Walmart" })), "Enter an item name.");
 });

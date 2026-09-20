@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f6f5ef" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#151713" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" id="themeColor" content="#f3f0e7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="FreshCheck">
@@ -47,6 +46,21 @@
         <div id="inventoryGroups" class="inventory-groups" aria-live="polite"></div>
       </section>
 
+      <section class="app-view" id="groceryView" data-view="grocery" aria-labelledby="groceryHeading" hidden>
+        <div class="view-heading"><div><p class="eyebrow">Next shopping trip</p><h2 id="groceryHeading">Grocery list</h2></div><button class="primary-button" id="addGroceryButton" type="button">Add item</button></div>
+        <div class="summary" aria-label="Grocery shopping summary">
+          <div class="summary-card warning"><strong id="toBuyCount">0</strong><span>To buy</span></div>
+          <div class="summary-card"><strong id="walmartNeedCount">0</strong><span>Walmart</span></div>
+          <div class="summary-card"><strong id="dollaramaNeedCount">0</strong><span>Dollarama</span></div>
+        </div>
+        <div class="toolbar grocery-toolbar">
+          <label class="search-field"><span class="sr-only">Search grocery list</span><input id="grocerySearch" type="search" placeholder="Search shopping list" autocomplete="off"></label>
+          <label><span class="sr-only">Select store</span><select id="groceryStoreFilter"><option value="all">All stores</option><option value="Walmart">Walmart</option><option value="Dollarama">Dollarama</option><option value="Other">Other</option></select></label>
+          <label><span class="sr-only">Filter shopping status</span><select id="groceryStatusFilter"><option value="need">To buy</option><option value="all">All items</option><option value="have">Already have</option></select></label>
+        </div>
+        <div id="groceryList" class="inventory-groups" aria-live="polite"></div>
+      </section>
+
       <section class="app-view" id="historyView" data-view="history" aria-labelledby="historyHeading" hidden>
         <div class="view-heading"><div><p class="eyebrow">Last 30 days</p><h2 id="historyHeading">History</h2></div></div>
         <div class="summary history-summary" aria-label="Food outcomes in the last 30 days">
@@ -64,6 +78,7 @@
     <button type="button" data-nav="today" aria-current="page"><span class="nav-symbol" aria-hidden="true">◷</span><span>Today</span></button>
     <button type="button" data-nav="inventory"><span class="nav-symbol" aria-hidden="true">▤</span><span>Inventory</span></button>
     <button class="nav-add add-button" type="button" aria-label="Add food"><span aria-hidden="true">+</span></button>
+    <button type="button" data-nav="grocery"><span class="nav-symbol" aria-hidden="true">✓</span><span>Groceries</span></button>
     <button type="button" data-nav="history"><span class="nav-symbol" aria-hidden="true">↺</span><span>History</span></button>
   </nav>
 
@@ -84,10 +99,23 @@
       </div>
       <div class="date-shortcuts" aria-label="Expiry date shortcuts"><button type="button" class="chip" data-days="3">+3 days</button><button type="button" class="chip" data-days="7">+1 week</button><button type="button" class="chip" data-days="14">+2 weeks</button><button type="button" class="chip" data-days="30">+1 month</button></div>
       <label class="field full-width"><span>Notes <small>optional</small></span><textarea id="notes" rows="2" maxlength="240" placeholder="Opened on Monday, top shelf…"></textarea></label>
-      <div class="scan-row"><button class="secondary-button" id="scanButton" type="button">Scan a date</button><input id="imageInput" type="file" accept="image/*" capture="environment" hidden><span id="ocrStatus" class="helper-text" aria-live="polite"></span></div>
-      <div id="ocrCandidates" class="date-shortcuts" aria-label="Dates found in image"></div>
       <p id="formError" class="form-error" role="alert"></p>
       <div class="dialog-actions"><button class="secondary-button" type="button" id="cancelItemButton">Cancel</button><button class="primary-button" type="submit">Save item</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="groceryDialog" class="app-dialog compact-dialog">
+    <form id="groceryForm">
+      <div class="dialog-header"><div><p class="eyebrow" id="groceryFormEyebrow">Shopping item</p><h2 id="groceryFormTitle">Add grocery</h2></div><button class="icon-button close-button" id="closeGroceryButton" type="button" aria-label="Close">×</button></div>
+      <input id="groceryItemId" type="hidden">
+      <label class="field"><span>Item name</span><input id="groceryItemName" type="text" required maxlength="80" placeholder="e.g. Milk"></label>
+      <div class="form-grid">
+        <label class="field"><span>Quantity <small>optional</small></span><input id="groceryQuantity" type="text" maxlength="30" placeholder="e.g. 3 or 2 packs"></label>
+        <label class="field"><span>Store</span><select id="groceryStore"><option>Walmart</option><option>Dollarama</option><option>Other</option></select></label>
+      </div>
+      <label class="check-field"><input id="groceryHave" type="checkbox"><span>I already have this item</span></label>
+      <p id="groceryFormError" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button class="secondary-button" type="button" id="cancelGroceryButton">Cancel</button><button class="primary-button" type="submit">Save item</button></div>
     </form>
   </dialog>
 
@@ -98,8 +126,11 @@
   </dialog>
 
   <dialog id="dataDialog" class="app-dialog compact-dialog">
-    <div class="dialog-header"><div><p class="eyebrow">Your data</p><h2>Backup and restore</h2></div><button class="icon-button close-button" id="closeDataButton" type="button" aria-label="Close">×</button></div>
-    <p class="dialog-copy">Your inventory stays on this device. Download a backup occasionally so it can be restored if Safari data is cleared or your phone is replaced.</p>
+    <div class="dialog-header"><div><p class="eyebrow">Settings</p><h2>FreshCheck settings</h2></div><button class="icon-button close-button" id="closeDataButton" type="button" aria-label="Close">×</button></div>
+    <label class="field settings-field"><span>Appearance</span><select id="themeSelect"><option value="system">Use device setting</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <hr class="settings-divider">
+    <h3>Backup and restore</h3>
+    <p class="dialog-copy">Your inventory and grocery list stay on this device. Download a backup occasionally so both can be restored if Safari data is cleared or your phone is replaced.</p>
     <div class="data-actions"><button class="primary-button" id="exportButton" type="button">Download backup</button><button class="secondary-button" id="importButton" type="button">Restore backup</button><input id="importInput" type="file" accept="application/json,.json" hidden></div>
     <p class="helper-text" id="dataStatus" aria-live="polite"></p>
   </dialog>
