@@ -89,6 +89,17 @@
         <button class="icon-button close-button" id="closeItemButton" type="button" aria-label="Close">×</button>
       </div>
       <input type="hidden" id="itemId">
+      <div class="scan-row">
+        <div><strong>Scan the package</strong><p class="helper-text">Fill product details from its barcode, then confirm the expiry date.</p></div>
+        <button class="secondary-button" id="scanBarcodeButton" type="button">Scan barcode</button>
+      </div>
+      <section class="scanner-panel" id="scannerPanel" hidden aria-labelledby="scannerHeading">
+        <div class="scanner-heading"><strong id="scannerHeading">Point at the barcode</strong><button class="text-button" id="stopScannerButton" type="button">Close scanner</button></div>
+        <video id="barcodeVideo" playsinline muted></video>
+        <p class="helper-text" id="scannerStatus" role="status" aria-live="polite">Camera stays on this device. Only the barcode number is used to find product details.</p>
+        <p class="helper-text">Product information is provided by <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a>.</p>
+        <div class="manual-barcode"><label class="field"><span>Or enter the number</span><input id="manualBarcode" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 628123456789"></label><button class="secondary-button" id="lookupBarcodeButton" type="button">Look up</button></div>
+      </section>
       <div id="recentFoods" class="recent-foods" hidden><span class="field-label">Recently added</span><div id="recentFoodButtons" class="date-shortcuts"></div></div>
       <label class="field full-width"><span>Food name</span><input id="itemName" type="text" required maxlength="80" autocomplete="off" placeholder="e.g. Greek yogurt"></label>
       <div class="form-grid">
@@ -96,6 +107,10 @@
         <label class="field"><span>Storage</span><select id="location"><option>Fridge</option><option>Freezer</option><option>Pantry</option><option>Counter</option><option>Other</option></select></label>
         <label class="field"><span>Quantity</span><input id="quantity" type="number" inputmode="decimal" min="0" step="any" placeholder="1"></label>
         <label class="field"><span>Unit</span><input id="unit" type="text" maxlength="24" placeholder="pack, kg, bottle"></label>
+      </div>
+      <div class="form-grid product-fields">
+        <label class="field"><span>Brand <small>optional</small></span><input id="brand" type="text" maxlength="80" autocomplete="off"></label>
+        <label class="field"><span>Barcode <small>optional</small></span><input id="barcode" type="text" inputmode="numeric" maxlength="80" autocomplete="off"></label>
       </div>
       <div class="date-shortcuts" aria-label="Expiry date shortcuts"><button type="button" class="chip" data-days="3">+3 days</button><button type="button" class="chip" data-days="7">+1 week</button><button type="button" class="chip" data-days="14">+2 weeks</button><button type="button" class="chip" data-days="30">+1 month</button></div>
       <label class="field full-width"><span>Notes <small>optional</small></span><textarea id="notes" rows="2" maxlength="240" placeholder="Opened on Monday, top shelf…"></textarea></label>
@@ -137,6 +152,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="toastMessage"></span><button id="undoButton" type="button">Undo</button></div>
   <div id="updateBanner" class="update-banner" hidden><span>A fresh version is ready.</span><button id="updateButton" type="button">Update</button></div>
+  <script src="./vendor/zxing-browser.min.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

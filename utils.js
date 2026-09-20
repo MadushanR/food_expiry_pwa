@@ -53,11 +53,77 @@ export function normalizeItem(raw = {}) {
     unit: String(raw.unit || "").trim(),
     location: String(raw.location || "Fridge"),
     notes: String(raw.notes || "").trim(),
+    barcode: String(raw.barcode || "").trim(),
+    brand: String(raw.brand || "").trim(),
+    groceryItemId: raw.groceryItemId ? String(raw.groceryItemId) : null,
     status: ["active", "used", "wasted", "frozen"].includes(raw.status) ? raw.status : "active",
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
     completedAt: raw.completedAt || null,
   };
+}
+
+export function normalizeProductName(value = "") {
+  return String(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\byoghurt\b/g, "yogurt")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+export function findMatchingGroceryItem(food, groceries = []) {
+  if (food?.groceryItemId) {
+    const linked = groceries.find((item) => item.id === food.groceryItemId);
+    if (linked) return linked;
+  }
+  const foodName = normalizeProductName(food?.name);
+  if (!foodName) return null;
+  const exact = groceries.find((item) => normalizeProductName(item.name) === foodName);
+  if (exact) return exact;
+  const contained = groceries
+    .filter((item) => {
+      const groceryName = normalizeProductName(item.name);
+      return groceryName.length >= 4 && (` ${foodName} `).includes(` ${groceryName} `);
+    })
+    .sort((a, b) => normalizeProductName(b.name).length - normalizeProductName(a.name).length);
+  return contained[0] || null;
+}
+
+export function hasActiveGroceryMatch(grocery, foods = [], excludedId = null) {
+  return foods.some((food) => food.id !== excludedId && food.status === "active" && findMatchingGroceryItem(food, [grocery])?.id === grocery.id);
+}
+
+function gs1Date(value) {
+  if (!/^\d{6}$/.test(value || "")) return "";
+  const year = 2000 + Number(value.slice(0, 2));
+  const month = Number(value.slice(2, 4));
+  let day = Number(value.slice(4, 6));
+  if (day === 0 && month >= 1 && month <= 12) day = new Date(year, month, 0).getDate();
+  const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return parseLocalDate(iso) ? iso : "";
+}
+
+export function parseGS1Barcode(raw = "") {
+  const value = String(raw).trim().replace(/^\][A-Za-z]\d/, "");
+  const parenthesizedGtin = value.match(/\(01\)(\d{14})/);
+  const compactGtin = !parenthesizedGtin && value.match(/^01(\d{14})/);
+  const gtin = parenthesizedGtin?.[1] || compactGtin?.[1] || "";
+  const expiry = value.match(/\(17\)(\d{6})/) || (gtin ? value.slice(16).match(/(?:^|\x1d)17(\d{6})/) : null);
+  const bestBefore = value.match(/\(15\)(\d{6})/) || (gtin ? value.slice(16).match(/(?:^|\x1d)15(\d{6})/) : null);
+  return {
+    barcode: gtin || value.replace(/\D/g, ""),
+    expiryDate: gs1Date(expiry?.[1]) || gs1Date(bestBefore?.[1]),
+    dateType: expiry ? "expiry" : bestBefore ? "best-before" : "",
+  };
+}
+
+export function parsePackageQuantity(value = "") {
+  const match = String(value).trim().match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/);
+  if (!match) return { quantity: null, unit: "" };
+  return { quantity: Number(match[1].replace(",", ".")), unit: match[2].trim().slice(0, 24) };
 }
 
 export function normalizeGroceryItem(raw = {}) {
