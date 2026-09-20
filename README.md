@@ -7,12 +7,15 @@ FreshCheck is a private, local-first Progressive Web App for tracking food expir
 - Groups active food into Expired, Use soon, and Later
 - Opens on a focused Today view for expired, due-today, and next-three-day items
 - Stores inventory in IndexedDB and migrates the original `localStorage` records automatically
-- Add and edit names, dates, quantities, units, locations, and notes
+- Add food manually or scan UPC, EAN, QR, and GS1 barcodes with the device camera
+- Fill product name, brand, and package size from Open Food Facts; GS1 dates are filled when present
+- Add and edit names, dates, quantities, units, locations, brands, barcodes, and notes
 - Mark food as used, wasted, or frozen, then restore it from History
 - Shows a lightweight 30-day outcome summary
 - Offers recent-food shortcuts for faster repeat entry
 - Includes a reusable grocery list grouped by Walmart, Dollarama, or another store
 - Seeds the provided regular shopping list once and remembers To buy / Already have status
+- Keeps groceries in sync: added/restored food is marked Have, while the last used/wasted match returns to To buy
 - Supports System, Light, and Dark appearance with a muted sage-and-brown palette
 - Search, filter, and sort the inventory
 - Export and restore a complete JSON backup
@@ -43,3 +46,5 @@ npm test
 4. Open FreshCheck from its new Home Screen icon.
 
 Inventory belongs to that installed web app on that device. Use **Backup and restore** regularly to keep a portable copy.
+
+Camera barcode decoding happens on the device. Most standard retail barcodes identify the product but do not include an expiry date, so FreshCheck asks you to confirm that date. Product lookup needs an internet connection; previously saved products can be filled from local history while offline.

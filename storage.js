@@ -77,7 +77,8 @@ export async function migrateLegacyItems(db) {
 }
 
 export async function getItems(db) {
-  return requestResult(db.transaction(ITEM_STORE, "readonly").objectStore(ITEM_STORE).getAll());
+  const items = await requestResult(db.transaction(ITEM_STORE, "readonly").objectStore(ITEM_STORE).getAll());
+  return items.map(normalizeItem);
 }
 
 export async function saveItem(db, item) {
@@ -103,7 +104,8 @@ export async function replaceItems(db, items) {
 }
 
 export async function getGroceryItems(db) {
-  return requestResult(db.transaction(GROCERY_STORE, "readonly").objectStore(GROCERY_STORE).getAll());
+  const items = await requestResult(db.transaction(GROCERY_STORE, "readonly").objectStore(GROCERY_STORE).getAll());
+  return items.map(normalizeGroceryItem);
 }
 
 export async function saveGroceryItem(db, item) {

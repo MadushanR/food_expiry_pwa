@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  addDaysISO, daysUntil, expiryState, groupActiveItems, normalizeGroceryItem,
-  normalizeItem, outcomeCounts, parseLocalDate, recentFoodTemplates, relativeExpiry,
-  validateGroceryItem, validateItem
+  addDaysISO, daysUntil, expiryState, findMatchingGroceryItem, groupActiveItems,
+  hasActiveGroceryMatch, normalizeGroceryItem, normalizeItem, outcomeCounts,
+  parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
+  relativeExpiry, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -24,11 +25,42 @@ test("invalid calendar dates are rejected", () => {
 });
 
 test("legacy items are normalized into the new schema", () => {
-  const item = normalizeItem({ name: " Milk ", expiry: "2026-09-23" });
+  const item = normalizeItem({ name: " Milk ", expiry: "2026-09-23", barcode: " 123 ", brand: " Farm " });
   assert.equal(item.name, "Milk");
   assert.equal(item.expiryDate, "2026-09-23");
   assert.equal(item.status, "active");
+  assert.equal(item.barcode, "123");
+  assert.equal(item.brand, "Farm");
   assert.ok(item.id);
+});
+
+test("GS1 barcodes provide GTIN and expiry or best-before dates", () => {
+  assert.deepEqual(parseGS1Barcode("(01)00628123456789(17)270915"), {
+    barcode: "00628123456789", expiryDate: "2027-09-15", dateType: "expiry",
+  });
+  assert.deepEqual(parseGS1Barcode("010062812345678915271200"), {
+    barcode: "00628123456789", expiryDate: "2027-12-31", dateType: "best-before",
+  });
+  assert.deepEqual(parseGS1Barcode("628123456789"), {
+    barcode: "628123456789", expiryDate: "", dateType: "",
+  });
+});
+
+test("package quantities are split into editable quantity and unit fields", () => {
+  assert.deepEqual(parsePackageQuantity("1.5 L"), { quantity: 1.5, unit: "L" });
+  assert.deepEqual(parsePackageQuantity("12 x 355 mL"), { quantity: 12, unit: "x 355 mL" });
+});
+
+test("inventory names match the reusable grocery list", () => {
+  const groceries = [
+    normalizeGroceryItem({ id: "milk", name: "Milk", store: "Walmart" }),
+    normalizeGroceryItem({ id: "yogurt", name: "Greek yoghurt", store: "Walmart" }),
+  ];
+  assert.equal(findMatchingGroceryItem({ name: "Great Value Milk" }, groceries)?.id, "milk");
+  assert.equal(findMatchingGroceryItem({ name: "Oikos Greek Yogurt" }, groceries)?.id, "yogurt");
+  assert.equal(findMatchingGroceryItem({ name: "Chocolate" }, groceries), null);
+  assert.equal(hasActiveGroceryMatch(groceries[0], [normalizeItem({ id: "food", name: "Milk", expiry: "2026-09-23" })]), true);
+  assert.equal(hasActiveGroceryMatch(groceries[0], [normalizeItem({ id: "food", name: "Milk", expiry: "2026-09-23", status: "used" })]), false);
 });
 
 test("active items are grouped without used items", () => {

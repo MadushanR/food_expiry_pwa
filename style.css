@@ -128,6 +128,15 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .date-shortcuts { display: flex; flex-wrap: wrap; gap: 7px; }
 .chip { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: .78rem; }
 .helper-text { color: var(--muted); font-size: .8rem; }
+.scan-row { padding: 13px 14px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-muted); }
+.scan-row strong { display: block; margin-bottom: 3px; }
+.scanner-panel { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.scanner-panel[hidden] { display: none; }
+.scanner-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.text-button { min-height: 40px; border: 0; background: transparent; color: var(--accent-strong); font-weight: 750; }
+#barcodeVideo { display: block; width: 100%; max-height: 280px; border-radius: 13px; background: #10110f; object-fit: cover; aspect-ratio: 4 / 3; }
+.manual-barcode { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 9px; }
+.product-fields { padding-top: 2px; }
 .form-error { min-height: 1.2em; color: var(--danger); font-size: .85rem; }
 .dialog-actions { justify-content: flex-end; }
 .dialog-copy { margin: 18px 0; color: var(--muted); line-height: 1.55; }
