@@ -11,10 +11,12 @@ FreshCheck is a private, local-first Progressive Web App for tracking food expir
 - Mark food as used, wasted, or frozen, then restore it from History
 - Shows a lightweight 30-day outcome summary
 - Offers recent-food shortcuts for faster repeat entry
+- Includes a reusable grocery list grouped by Walmart, Dollarama, or another store
+- Seeds the provided regular shopping list once and remembers To buy / Already have status
+- Supports System, Light, and Dark appearance with a muted sage-and-brown palette
 - Search, filter, and sort the inventory
 - Export and restore a complete JSON backup
 - Offline app shell, explicit update prompt, light/dark mode, and iPhone safe-area support
-- Optional camera OCR with candidate-date confirmation; scanning requires a network connection
 - Automated tests run for every pull request
 
 ## Run locally

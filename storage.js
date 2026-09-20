@@ -1,9 +1,11 @@
-import { normalizeItem } from "./utils.js";
+import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
+import { normalizeGroceryItem, normalizeItem } from "./utils.js";
 
 const DB_NAME = "freshcheck";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const ITEM_STORE = "items";
 const META_STORE = "meta";
+const GROCERY_STORE = "groceryItems";
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {
@@ -27,10 +29,30 @@ export function openDatabase() {
       const db = request.result;
       if (!db.objectStoreNames.contains(ITEM_STORE)) db.createObjectStore(ITEM_STORE, { keyPath: "id" });
       if (!db.objectStoreNames.contains(META_STORE)) db.createObjectStore(META_STORE, { keyPath: "key" });
+      if (!db.objectStoreNames.contains(GROCERY_STORE)) db.createObjectStore(GROCERY_STORE, { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+}
+
+export async function seedGroceryItems(db) {
+  const check = db.transaction(META_STORE, "readonly");
+  const completed = await requestResult(check.objectStore(META_STORE).get("grocerySeedComplete"));
+  if (completed) return 0;
+  const transaction = db.transaction([GROCERY_STORE, META_STORE], "readwrite");
+  const groceryStore = transaction.objectStore(GROCERY_STORE);
+  const existingCount = await requestResult(groceryStore.count());
+  let seeded = 0;
+  if (existingCount === 0) {
+    DEFAULT_GROCERY_ITEMS.forEach((raw, index) => {
+      groceryStore.put(normalizeGroceryItem({ ...raw, id: `grocery-default-${index + 1}` }));
+      seeded += 1;
+    });
+  }
+  transaction.objectStore(META_STORE).put({ key: "grocerySeedComplete", completedAt: new Date().toISOString() });
+  await transactionDone(transaction);
+  return seeded;
 }
 
 export async function migrateLegacyItems(db) {
@@ -74,6 +96,32 @@ export async function replaceItems(db, items) {
   const normalized = items.map(normalizeItem);
   const transaction = db.transaction(ITEM_STORE, "readwrite");
   const store = transaction.objectStore(ITEM_STORE);
+  store.clear();
+  normalized.forEach((item) => store.put(item));
+  await transactionDone(transaction);
+  return normalized.length;
+}
+
+export async function getGroceryItems(db) {
+  return requestResult(db.transaction(GROCERY_STORE, "readonly").objectStore(GROCERY_STORE).getAll());
+}
+
+export async function saveGroceryItem(db, item) {
+  const transaction = db.transaction(GROCERY_STORE, "readwrite");
+  transaction.objectStore(GROCERY_STORE).put(normalizeGroceryItem(item));
+  await transactionDone(transaction);
+}
+
+export async function removeGroceryItem(db, id) {
+  const transaction = db.transaction(GROCERY_STORE, "readwrite");
+  transaction.objectStore(GROCERY_STORE).delete(id);
+  await transactionDone(transaction);
+}
+
+export async function replaceGroceryItems(db, items) {
+  const normalized = items.map(normalizeGroceryItem);
+  const transaction = db.transaction(GROCERY_STORE, "readwrite");
+  const store = transaction.objectStore(GROCERY_STORE);
   store.clear();
   normalized.forEach((item) => store.put(item));
   await transactionDone(transaction);

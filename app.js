@@ -1,8 +1,12 @@
 import {
-  addDaysISO, daysUntil, expiryState, extractOCRDates, groupActiveItems, makeId,
-  normalizeItem, outcomeCounts, recentFoodTemplates, relativeExpiry, todayISO, validateItem
+  addDaysISO, daysUntil, expiryState, groupActiveItems, makeId, normalizeGroceryItem,
+  normalizeItem, outcomeCounts, recentFoodTemplates, relativeExpiry, todayISO,
+  validateGroceryItem, validateItem
 } from "./utils.js";
-import { getItems, migrateLegacyItems, openDatabase, removeItem, replaceItems, saveItem } from "./storage.js";
+import {
+  getGroceryItems, getItems, migrateLegacyItems, openDatabase, removeGroceryItem,
+  removeItem, replaceGroceryItems, replaceItems, saveGroceryItem, saveItem, seedGroceryItems
+} from "./storage.js";
 
 const $ = (selector) => document.querySelector(selector);
 const elements = {
@@ -15,13 +19,20 @@ const elements = {
   formError: $("#formError"), formTitle: $("#formTitle"), formEyebrow: $("#formEyebrow"),
   recentFoods: $("#recentFoods"), recentFoodButtons: $("#recentFoodButtons"),
   outcomeDialog: $("#outcomeDialog"), outcomeTitle: $("#outcomeTitle"),
-  dataDialog: $("#dataDialog"), dataStatus: $("#dataStatus"), imageInput: $("#imageInput"),
-  ocrStatus: $("#ocrStatus"), ocrCandidates: $("#ocrCandidates"),
+  groceryList: $("#groceryList"), grocerySearch: $("#grocerySearch"), groceryStoreFilter: $("#groceryStoreFilter"),
+  groceryStatusFilter: $("#groceryStatusFilter"), toBuyCount: $("#toBuyCount"),
+  walmartNeedCount: $("#walmartNeedCount"), dollaramaNeedCount: $("#dollaramaNeedCount"),
+  groceryDialog: $("#groceryDialog"), groceryForm: $("#groceryForm"), groceryItemId: $("#groceryItemId"),
+  groceryItemName: $("#groceryItemName"), groceryQuantity: $("#groceryQuantity"), groceryStore: $("#groceryStore"),
+  groceryHave: $("#groceryHave"), groceryFormError: $("#groceryFormError"),
+  groceryFormTitle: $("#groceryFormTitle"), groceryFormEyebrow: $("#groceryFormEyebrow"),
+  dataDialog: $("#dataDialog"), dataStatus: $("#dataStatus"), themeSelect: $("#themeSelect"),
   toast: $("#toast"), toastMessage: $("#toastMessage"), undoButton: $("#undoButton"),
 };
 
 let db;
 let items = [];
+let groceryItems = [];
 let undoItem = null;
 let actionItemId = null;
 let toastTimer = null;
@@ -31,6 +42,17 @@ function escapeHTML(value) {
   node.textContent = String(value ?? "");
   return node.innerHTML;
 }
+
+function applyTheme(preference = localStorage.getItem("freshcheckTheme") || "system") {
+  if (preference === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.dataset.theme = preference;
+  localStorage.setItem("freshcheckTheme", preference);
+  const dark = preference === "dark" || (preference === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+  $("#themeColor").content = dark ? "#181a16" : "#f3f0e7";
+  if (elements.themeSelect) elements.themeSelect.value = preference;
+}
+
+applyTheme();
 
 function formatDate(value, options = { month: "short", day: "numeric", year: "numeric" }) {
   const [year, month, day] = value.split("-").map(Number);
@@ -42,13 +64,12 @@ function formatCompleted(value) {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(value));
 }
 
-function setView(view, focusHeading = false) {
+function setView(view) {
   document.querySelectorAll("[data-view]").forEach((section) => { section.hidden = section.dataset.view !== view; });
   document.querySelectorAll("[data-nav]").forEach((button) => {
     if (button.dataset.nav === view) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   });
-  if (focusHeading) document.querySelector(`[data-view="${view}"] h2`)?.focus({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: "auto" });
 }
 
@@ -92,6 +113,15 @@ function historyItemMarkup(item) {
   </article>`;
 }
 
+function groceryItemMarkup(item) {
+  const quantity = item.quantity ? ` · ${escapeHTML(item.quantity)}` : "";
+  return `<article class="grocery-row ${item.have ? "have" : ""}" data-grocery-id="${escapeHTML(item.id)}">
+    <input class="grocery-toggle" type="checkbox" ${item.have ? "checked" : ""} aria-label="${item.have ? "Move" : "Mark"} ${escapeHTML(item.name)} ${item.have ? "to shopping list" : "as already have"}">
+    <div><p class="grocery-name">${escapeHTML(item.name)}</p><p class="grocery-meta"><span class="store-label">${escapeHTML(item.store)}</span>${quantity}</p></div>
+    <div class="item-menu"><button class="item-action" type="button" data-grocery-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-grocery-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
+  </article>`;
+}
+
 function emptyMarkup(title, message, showAdd = false) {
   return `<div class="empty-state"><strong>${escapeHTML(title)}</strong><span>${escapeHTML(message)}</span>${showAdd ? '<button class="primary-button add-button" type="button">Add food</button>' : ""}</div>`;
 }
@@ -131,9 +161,7 @@ function renderInventory() {
 
 function renderHistory() {
   const counts = outcomeCounts(items);
-  elements.usedCount.textContent = counts.used;
-  elements.wastedCount.textContent = counts.wasted;
-  elements.frozenCount.textContent = counts.frozen;
+  elements.usedCount.textContent = counts.used; elements.wastedCount.textContent = counts.wasted; elements.frozenCount.textContent = counts.frozen;
   const filter = elements.historyFilter.value;
   const history = items.filter((item) => item.status !== "active" && (filter === "all" || item.status === filter))
     .sort((a, b) => (b.completedAt || "").localeCompare(a.completedAt || ""));
@@ -142,12 +170,38 @@ function renderHistory() {
     : emptyMarkup("No history yet", filter === "all" ? "Items you use, waste, or freeze will appear here." : `No items marked ${filter}.`);
 }
 
+function renderGroceries() {
+  const needs = groceryItems.filter((item) => !item.have);
+  elements.toBuyCount.textContent = needs.length;
+  elements.walmartNeedCount.textContent = needs.filter((item) => item.store === "Walmart").length;
+  elements.dollaramaNeedCount.textContent = needs.filter((item) => item.store === "Dollarama").length;
+  const query = elements.grocerySearch.value.trim().toLowerCase();
+  const store = elements.groceryStoreFilter.value;
+  const status = elements.groceryStatusFilter.value;
+  const visible = groceryItems.filter((item) => {
+    if (query && !item.name.toLowerCase().includes(query)) return false;
+    if (store !== "all" && item.store !== store) return false;
+    if (status === "need" && item.have) return false;
+    if (status === "have" && !item.have) return false;
+    return true;
+  }).sort((a, b) => a.store.localeCompare(b.store) || Number(a.have) - Number(b.have) || a.name.localeCompare(b.name));
+  if (!visible.length) {
+    elements.groceryList.innerHTML = emptyMarkup(status === "need" ? "Shopping list complete" : "No grocery items found", status === "need" ? "You already have everything in this view." : "Try another store, status, or search.");
+    return;
+  }
+  const stores = [...new Set(visible.map((item) => item.store))];
+  elements.groceryList.innerHTML = stores.map((storeName) => {
+    const storeItems = visible.filter((item) => item.store === storeName);
+    return `<section class="group"><div class="group-title"><h3>${escapeHTML(storeName)}</h3><span>${storeItems.filter((item) => !item.have).length} to buy</span></div><div class="item-list">${storeItems.map(groceryItemMarkup).join("")}</div></section>`;
+  }).join("");
+}
+
 function render() {
   const active = items.filter((item) => item.status === "active");
   elements.expiredCount.textContent = active.filter((item) => daysUntil(item.expiryDate) < 0).length;
   elements.todayCount.textContent = active.filter((item) => daysUntil(item.expiryDate) === 0).length;
   elements.soonCount.textContent = active.filter((item) => daysUntil(item.expiryDate) >= 1 && daysUntil(item.expiryDate) <= 3).length;
-  renderToday(active); renderInventory(); renderHistory();
+  renderToday(active); renderInventory(); renderGroceries(); renderHistory();
 }
 
 function renderRecentFoods() {
@@ -157,7 +211,7 @@ function renderRecentFoods() {
 }
 
 function openItemDialog(item = null) {
-  elements.itemForm.reset(); elements.formError.textContent = ""; elements.ocrStatus.textContent = ""; elements.ocrCandidates.innerHTML = "";
+  elements.itemForm.reset(); elements.formError.textContent = "";
   elements.itemId.value = item?.id || ""; elements.itemName.value = item?.name || ""; elements.expiryDate.value = item?.expiryDate || todayISO();
   elements.quantity.value = item?.quantity ?? ""; elements.unit.value = item?.unit || ""; elements.location.value = item?.location || "Fridge"; elements.notes.value = item?.notes || "";
   elements.formTitle.textContent = item ? "Edit food" : "Add food"; elements.formEyebrow.textContent = item ? "Update item" : "New item";
@@ -165,7 +219,18 @@ function openItemDialog(item = null) {
   elements.itemDialog.showModal(); requestAnimationFrame(() => elements.itemName.focus());
 }
 
-async function refresh() { items = await getItems(db); render(); }
+function openGroceryDialog(item = null) {
+  elements.groceryForm.reset(); elements.groceryFormError.textContent = "";
+  elements.groceryItemId.value = item?.id || ""; elements.groceryItemName.value = item?.name || "";
+  elements.groceryQuantity.value = item?.quantity || ""; elements.groceryStore.value = item?.store || "Walmart"; elements.groceryHave.checked = item?.have || false;
+  elements.groceryFormTitle.textContent = item ? "Edit grocery" : "Add grocery"; elements.groceryFormEyebrow.textContent = item ? "Update shopping item" : "Shopping item";
+  elements.groceryDialog.showModal(); requestAnimationFrame(() => elements.groceryItemName.focus());
+}
+
+async function refresh() {
+  [items, groceryItems] = await Promise.all([getItems(db), getGroceryItems(db)]);
+  render();
+}
 
 function showToast(message, item = null) {
   clearTimeout(toastTimer); undoItem = item; elements.toastMessage.textContent = message;
@@ -178,10 +243,8 @@ function openOutcome(item) {
 }
 
 async function handleItemAction(event) {
-  const button = event.target.closest("[data-action]");
-  if (!button) return;
-  const item = items.find((entry) => entry.id === button.closest("[data-id]")?.dataset.id);
-  if (!item) return;
+  const button = event.target.closest("[data-action]"); if (!button) return;
+  const item = items.find((entry) => entry.id === button.closest("[data-id]")?.dataset.id); if (!item) return;
   if (button.dataset.action === "edit") { openItemDialog(item); return; }
   if (button.dataset.action === "act") { openOutcome(item); return; }
   if (button.dataset.action === "delete") { await removeItem(db, item.id); await refresh(); showToast(`${item.name} deleted`, item); return; }
@@ -193,11 +256,9 @@ async function handleItemAction(event) {
 }
 
 async function recordOutcome(status) {
-  const item = items.find((entry) => entry.id === actionItemId);
-  if (!item) return;
+  const item = items.find((entry) => entry.id === actionItemId); if (!item) return;
   await saveItem(db, { ...item, status, completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-  elements.outcomeDialog.close(); actionItemId = null; await refresh();
-  showToast(`${item.name} marked ${status}`, item);
+  elements.outcomeDialog.close(); actionItemId = null; await refresh(); showToast(`${item.name} marked ${status}`, item);
 }
 
 async function saveForm(event) {
@@ -208,19 +269,48 @@ async function saveForm(event) {
     quantity: elements.quantity.value, unit: elements.unit.value, location: elements.location.value, notes: elements.notes.value,
     status: existing?.status || "active", createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
   });
-  const error = validateItem(item);
-  if (error) { elements.formError.textContent = error; return; }
+  const error = validateItem(item); if (error) { elements.formError.textContent = error; return; }
   const duplicate = items.find((other) => other.id !== item.id && other.status === "active" && other.name.toLowerCase() === item.name.toLowerCase() && other.expiryDate === item.expiryDate);
   if (duplicate && !confirm(`Another ${item.name} with this expiry date already exists. Save it anyway?`)) return;
   await saveItem(db, item); elements.itemDialog.close(); await refresh(); showToast(existing ? `${item.name} updated` : `${item.name} added`);
 }
 
+async function saveGroceryForm(event) {
+  event.preventDefault();
+  const existing = groceryItems.find((item) => item.id === elements.groceryItemId.value);
+  const item = normalizeGroceryItem({
+    ...existing, id: existing?.id || makeId(), name: elements.groceryItemName.value, quantity: elements.groceryQuantity.value,
+    store: elements.groceryStore.value, have: elements.groceryHave.checked,
+    createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+  });
+  const error = validateGroceryItem(item); if (error) { elements.groceryFormError.textContent = error; return; }
+  const duplicate = groceryItems.find((other) => other.id !== item.id && other.store === item.store && other.name.toLowerCase() === item.name.toLowerCase());
+  if (duplicate && !confirm(`${item.name} is already listed for ${item.store}. Save another one?`)) return;
+  await saveGroceryItem(db, item); elements.groceryDialog.close(); await refresh(); showToast(existing ? `${item.name} updated` : `${item.name} added to groceries`);
+}
+
+async function handleGroceryClick(event) {
+  const button = event.target.closest("[data-grocery-action]"); if (!button) return;
+  const item = groceryItems.find((entry) => entry.id === button.closest("[data-grocery-id]")?.dataset.groceryId); if (!item) return;
+  if (button.dataset.groceryAction === "edit") { openGroceryDialog(item); return; }
+  if (button.dataset.groceryAction === "delete" && confirm(`Delete ${item.name} from your reusable grocery list?`)) {
+    await removeGroceryItem(db, item.id); await refresh(); showToast(`${item.name} removed from groceries`);
+  }
+}
+
+async function handleGroceryToggle(event) {
+  const checkbox = event.target.closest(".grocery-toggle"); if (!checkbox) return;
+  const item = groceryItems.find((entry) => entry.id === checkbox.closest("[data-grocery-id]")?.dataset.groceryId); if (!item) return;
+  await saveGroceryItem(db, { ...item, have: checkbox.checked, updatedAt: new Date().toISOString() });
+  await refresh(); showToast(checkbox.checked ? `${item.name} marked as already have` : `${item.name} added to shopping list`);
+}
+
 function downloadBackup() {
-  const payload = { app: "FreshCheck", version: 2, exportedAt: new Date().toISOString(), items };
+  const payload = { app: "FreshCheck", version: 3, exportedAt: new Date().toISOString(), items, groceryItems };
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
   const link = document.createElement("a"); link.href = url; link.download = `freshcheck-backup-${todayISO()}.json`;
   document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  elements.dataStatus.textContent = `${items.length} items exported.`;
+  elements.dataStatus.textContent = `${items.length} food records and ${groceryItems.length} grocery items exported.`;
 }
 
 async function importBackup(file) {
@@ -229,34 +319,14 @@ async function importBackup(file) {
     if (payload?.app !== "FreshCheck" || !Array.isArray(payload.items)) throw new Error("This is not a FreshCheck backup file.");
     const normalized = payload.items.map(normalizeItem);
     if (normalized.some((item) => validateItem(item))) throw new Error("The backup contains an invalid food item.");
-    if (!confirm(`Replace the inventory on this device with ${normalized.length} items from the backup?`)) return;
-    await replaceItems(db, normalized); await refresh(); elements.dataStatus.textContent = `${normalized.length} items restored successfully.`;
+    const restoredGroceries = Array.isArray(payload.groceryItems) ? payload.groceryItems.map(normalizeGroceryItem) : null;
+    if (restoredGroceries?.some((item) => validateGroceryItem(item))) throw new Error("The backup contains an invalid grocery item.");
+    const groceryMessage = restoredGroceries ? ` and ${restoredGroceries.length} grocery items` : "";
+    if (!confirm(`Replace this device's inventory with ${normalized.length} food records${groceryMessage}?`)) return;
+    await replaceItems(db, normalized);
+    if (restoredGroceries) await replaceGroceryItems(db, restoredGroceries);
+    await refresh(); elements.dataStatus.textContent = "Backup restored successfully.";
   } catch (error) { elements.dataStatus.textContent = error.message || "The backup could not be restored."; }
-}
-
-async function loadTesseract() {
-  if (globalThis.Tesseract) return globalThis.Tesseract;
-  await new Promise((resolve, reject) => {
-    const script = document.createElement("script"); script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
-    script.onload = resolve; script.onerror = reject; document.head.appendChild(script);
-  });
-  return globalThis.Tesseract;
-}
-
-async function scanImage(file) {
-  elements.ocrStatus.textContent = "Loading scanner…"; elements.ocrCandidates.innerHTML = "";
-  try {
-    const Tesseract = await loadTesseract();
-    const result = await Tesseract.recognize(file, "eng", { logger: (message) => {
-      if (message.status === "recognizing text") elements.ocrStatus.textContent = `Scanning… ${Math.round(message.progress * 100)}%`;
-    }});
-    const dates = extractOCRDates(result.data.text);
-    if (!dates.length) throw new Error("No likely date found. Enter it manually.");
-    elements.ocrStatus.textContent = dates.length === 1 ? "One date found. Confirm it:" : "Choose the correct date:";
-    elements.ocrCandidates.innerHTML = dates.map((date) => `<button type="button" class="chip" data-ocr-date="${date}">${escapeHTML(formatDate(date))}</button>`).join("");
-  } catch (error) {
-    elements.ocrStatus.textContent = navigator.onLine ? (error.message || "Could not scan this image.") : "Scanning needs an internet connection; enter the date manually.";
-  } finally { elements.imageInput.value = ""; }
 }
 
 function bindEvents() {
@@ -280,18 +350,22 @@ function bindEvents() {
   });
   $("#closeOutcomeButton").addEventListener("click", () => elements.outcomeDialog.close());
   document.querySelectorAll("[data-outcome]").forEach((button) => button.addEventListener("click", () => recordOutcome(button.dataset.outcome)));
-  $("#dataButton").addEventListener("click", () => { elements.dataStatus.textContent = ""; elements.dataDialog.showModal(); });
+  $("#addGroceryButton").addEventListener("click", () => openGroceryDialog());
+  $("#closeGroceryButton").addEventListener("click", () => elements.groceryDialog.close());
+  $("#cancelGroceryButton").addEventListener("click", () => elements.groceryDialog.close());
+  elements.groceryForm.addEventListener("submit", saveGroceryForm);
+  elements.groceryList.addEventListener("click", handleGroceryClick);
+  elements.groceryList.addEventListener("change", handleGroceryToggle);
+  [elements.grocerySearch, elements.groceryStoreFilter, elements.groceryStatusFilter].forEach((element) => element.addEventListener("input", renderGroceries));
+  $("#dataButton").addEventListener("click", () => { elements.dataStatus.textContent = ""; elements.themeSelect.value = localStorage.getItem("freshcheckTheme") || "system"; elements.dataDialog.showModal(); });
   $("#closeDataButton").addEventListener("click", () => elements.dataDialog.close());
+  elements.themeSelect.addEventListener("change", () => applyTheme(elements.themeSelect.value));
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if ((localStorage.getItem("freshcheckTheme") || "system") === "system") applyTheme("system");
+  });
   $("#exportButton").addEventListener("click", downloadBackup);
   $("#importButton").addEventListener("click", () => $("#importInput").click());
   $("#importInput").addEventListener("change", (event) => event.target.files[0] && importBackup(event.target.files[0]));
-  $("#scanButton").addEventListener("click", () => elements.imageInput.click());
-  elements.imageInput.addEventListener("change", (event) => event.target.files[0] && scanImage(event.target.files[0]));
-  elements.ocrCandidates.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-ocr-date]"); if (!button) return;
-    elements.expiryDate.value = button.dataset.ocrDate; elements.ocrStatus.textContent = `Selected ${formatDate(button.dataset.ocrDate)}. Please verify before saving.`;
-    elements.ocrCandidates.innerHTML = "";
-  });
   elements.undoButton.addEventListener("click", async () => {
     if (!undoItem) return; await saveItem(db, undoItem); await refresh(); elements.toast.hidden = true; undoItem = null;
   });
@@ -312,10 +386,13 @@ async function registerServiceWorker() {
 
 async function init() {
   try {
-    db = await openDatabase(); const migrated = await migrateLegacyItems(db);
+    db = await openDatabase();
+    const migrated = await migrateLegacyItems(db);
+    const seeded = await seedGroceryItems(db);
     $("#todayDate").textContent = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric" }).format(new Date());
     bindEvents(); await refresh(); await registerServiceWorker();
     if (migrated) showToast(`${migrated} existing item${migrated === 1 ? "" : "s"} safely upgraded`);
+    else if (seeded) showToast(`${seeded} regular grocery items added`);
   } catch (error) {
     elements.todayGroups.innerHTML = emptyMarkup("FreshCheck could not open its local database", error.message || "Try closing and reopening the app.");
   }
