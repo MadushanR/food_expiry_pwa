@@ -20,6 +20,11 @@ button { touch-action: manipulation; }
 .app-header, .section-heading, .dialog-header, .dialog-actions, .scan-row {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
+.brand-lockup { display: flex; align-items: center; gap: 12px; }
+.app-logo {
+  display: block; width: 52px; height: 52px; border-radius: 14px;
+  border: 1px solid var(--line); object-fit: cover;
+}
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: clamp(1.75rem, 6vw, 2.35rem); letter-spacing: -.04em; }
 h2 { font-size: 1.35rem; letter-spacing: -.025em; }
