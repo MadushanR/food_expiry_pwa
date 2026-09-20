@@ -1,72 +1,39 @@
-# 🥫 Food Expiry Tracker PWA
+# FreshCheck
 
-This is a **Progressive Web App (PWA)** that helps you track food items and their expiry dates — works **offline** and can be installed on your **iPhone, Android, or desktop** like a native app.
+FreshCheck is a private, local-first Progressive Web App for tracking food expiry dates. It is designed to work as an installed iPhone Home Screen app without a paid backend.
 
----
+## Features
 
-## ✨ Features
+- Groups active food into Expired, Use soon, and Later
+- Stores inventory in IndexedDB and migrates the original `localStorage` records automatically
+- Add and edit names, dates, quantities, units, locations, and notes
+- Mark food as used, restore it, or delete it with an undo window
+- Search, filter, and sort the inventory
+- Export and restore a complete JSON backup
+- Offline app shell, explicit update prompt, light/dark mode, and iPhone safe-area support
+- Optional camera OCR with manual date confirmation; scanning requires a network connection
 
-- ✅ Add food items with expiry dates
-- ✅ Highlight expired items in red
-- ✅ Delete items anytime
-- ✅ Works offline using service workers
-- ✅ Dark theme for low-light use
-- ✅ Installable on iOS (Add to Home Screen via Safari)
+## Run locally
 
----
+Serve the folder over HTTP rather than opening `index.html` directly. For example:
 
-## 🗂️ File Structure
-
-```
-📁 food_expiry_pwa
-├── index.html             # Main HTML file
-├── manifest.json          # PWA manifest metadata
-├── service-worker.js      # Handles offline caching
-├── style.css              # Dark-themed styling
-└── 📁 icons
-    ├── icon-192.png       # PWA icon (192x192)
-    └── icon-512.png       # PWA icon (512x512)
+```sh
+npx serve .
 ```
 
----
+Then open the local URL. The app can also be hosted as static files on GitHub Pages.
 
-## 📱 How to Install on iOS
+## Tests
 
-1. Upload your project to a free host (like [Netlify](https://www.netlify.com/), [Vercel](https://vercel.com/), or [GitHub Pages](https://pages.github.com/)).
-2. Open the URL in **Safari** on your iPhone.
-3. Tap the **Share** icon and select **Add to Home Screen**.
-4. Done! You now have a native-like app.
+```sh
+npm test
+```
 
----
+## iPhone installation
 
-## 🌐 Hosting (Optional)
+1. Open the hosted app in Safari.
+2. Tap Share.
+3. Choose **Add to Home Screen**.
+4. Open FreshCheck from its new Home Screen icon.
 
-You can deploy this using:
-
-- **Netlify**: Drag & drop folder
-- **GitHub Pages**: Push code to `main` or `gh-pages` branch
-- **Vercel**: Use GitHub integration or CLI
-
----
-
-## 📦 Built With
-
-- HTML5
-- CSS3 (Dark Theme)
-- JavaScript
-- Service Workers
-- Web App Manifest
-
----
-
-## 🧠 Future Ideas
-
-- Toggle between Light and Dark themes
-- Push notifications for upcoming expiries
-- Cloud sync with Firebase
-
----
-
-## ©️ License
-
-This project is free to use and modify.
+Inventory belongs to that installed web app on that device. Use **Backup and restore** regularly to keep a portable copy.

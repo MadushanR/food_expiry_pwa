@@ -1,229 +1,84 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <link rel="stylesheet" href="style.css">
   <meta charset="UTF-8">
-  <title>Food Expiry Tracker</title>
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#2b2b2b">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f5ef" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#151713" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Expiry Tracker">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="apple-touch-icon" href="icons/logo.png">
-  <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="FreshCheck">
+  <meta name="description" content="A private, offline food expiry tracker.">
+  <title>FreshCheck</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
+  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <h1>Food Expiry Tracker</h1>
-  <form id="foodForm">
-    <button type="button" id="sortBtn">Sort by Expiry</button>
-    <input type="text" id="item" placeholder="Item Name" required>
-    <div class="expiry-input-group">
-      <input type="date" id="expiry" required>
-      <button type="button" id="cameraBtn" title="Scan expiry date from image">📷</button>
-      <input type="file" id="imageInput" accept="image/*" capture="environment" style="display: none;">
-    </div>
-    <div id="ocrStatus" class="ocr-status"></div>
-    <button type="submit">Add</button>
-  </form>
-  <div class="search-container">
-    <input type="text" id="searchInput" placeholder="🔍 Search items...">
+  <div class="app-shell">
+    <header class="app-header">
+      <div><p class="eyebrow">Your kitchen</p><h1>FreshCheck</h1></div>
+      <button class="icon-button" id="dataButton" type="button" aria-label="Backup and restore" title="Backup and restore"><span aria-hidden="true">•••</span></button>
+    </header>
+    <main>
+      <section class="summary" aria-label="Food summary">
+        <button class="summary-card danger" type="button" data-filter="expired"><strong id="expiredCount">0</strong><span>Expired</span></button>
+        <button class="summary-card warning" type="button" data-filter="soon"><strong id="soonCount">0</strong><span>Use soon</span></button>
+        <button class="summary-card" type="button" data-filter="active"><strong id="totalCount">0</strong><span>In kitchen</span></button>
+      </section>
+      <section class="inventory" aria-labelledby="inventoryHeading">
+        <div class="section-heading">
+          <div><p class="eyebrow">Inventory</p><h2 id="inventoryHeading">What to use next</h2></div>
+          <button class="primary-button" id="addButton" type="button">Add food</button>
+        </div>
+        <div class="toolbar">
+          <label class="search-field"><span class="sr-only">Search food</span><input id="searchInput" type="search" placeholder="Search food" autocomplete="off"></label>
+          <label><span class="sr-only">Filter inventory</span><select id="filterSelect"><option value="active">Active</option><option value="expired">Expired</option><option value="soon">Use soon</option><option value="used">Used</option><option value="all">Everything</option></select></label>
+          <label><span class="sr-only">Sort inventory</span><select id="sortSelect"><option value="expiry">Expiry date</option><option value="name">Name</option><option value="recent">Recently added</option></select></label>
+        </div>
+        <div id="inventoryGroups" class="inventory-groups" aria-live="polite"></div>
+      </section>
+    </main>
   </div>
-  <ul id="itemList"></ul>
 
-  <script>
-    const form = document.getElementById('foodForm');
-    const itemList = document.getElementById('itemList');
+  <dialog id="itemDialog" class="app-dialog">
+    <form id="itemForm">
+      <div class="dialog-header">
+        <div><p class="eyebrow" id="formEyebrow">New item</p><h2 id="formTitle">Add food</h2></div>
+        <button class="icon-button close-button" id="closeItemButton" type="button" aria-label="Close">×</button>
+      </div>
+      <input type="hidden" id="itemId">
+      <label class="field full-width"><span>Food name</span><input id="itemName" type="text" required maxlength="80" autocomplete="off" placeholder="e.g. Greek yogurt"></label>
+      <div class="form-grid">
+        <label class="field"><span>Expiry date</span><input id="expiryDate" type="date" required></label>
+        <label class="field"><span>Storage</span><select id="location"><option>Fridge</option><option>Freezer</option><option>Pantry</option><option>Counter</option><option>Other</option></select></label>
+        <label class="field"><span>Quantity</span><input id="quantity" type="number" inputmode="decimal" min="0" step="any" placeholder="1"></label>
+        <label class="field"><span>Unit</span><input id="unit" type="text" maxlength="24" placeholder="pack, kg, bottle"></label>
+      </div>
+      <div class="date-shortcuts" aria-label="Expiry date shortcuts">
+        <button type="button" class="chip" data-days="3">+3 days</button><button type="button" class="chip" data-days="7">+1 week</button><button type="button" class="chip" data-days="14">+2 weeks</button><button type="button" class="chip" data-days="30">+1 month</button>
+      </div>
+      <label class="field full-width"><span>Notes <small>optional</small></span><textarea id="notes" rows="2" maxlength="240" placeholder="Opened on Monday, top shelf…"></textarea></label>
+      <div class="scan-row">
+        <button class="secondary-button" id="scanButton" type="button">Scan a date</button>
+        <input id="imageInput" type="file" accept="image/*" capture="environment" hidden>
+        <span id="ocrStatus" class="helper-text" aria-live="polite"></span>
+      </div>
+      <p id="formError" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button class="secondary-button" type="button" id="cancelItemButton">Cancel</button><button class="primary-button" type="submit">Save item</button></div>
+    </form>
+  </dialog>
 
-    
-    function loadItems(searchTerm = '') {
-      const sortButton = document.getElementById('sortBtn');
-      sortButton.onclick = () => {
-        const items = JSON.parse(localStorage.getItem('foodItems') || '[]');
-        items.sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
-        localStorage.setItem('foodItems', JSON.stringify(items));
-        loadItems(document.getElementById('searchInput').value);
-      };
+  <dialog id="dataDialog" class="app-dialog compact-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Your data</p><h2>Backup and restore</h2></div><button class="icon-button close-button" id="closeDataButton" type="button" aria-label="Close">×</button></div>
+    <p class="dialog-copy">Your inventory stays on this device. Download a backup occasionally so it can be restored if Safari data is cleared or your phone is replaced.</p>
+    <div class="data-actions"><button class="primary-button" id="exportButton" type="button">Download backup</button><button class="secondary-button" id="importButton" type="button">Restore backup</button><input id="importInput" type="file" accept="application/json,.json" hidden></div>
+    <p class="helper-text" id="dataStatus" aria-live="polite"></p>
+  </dialog>
 
-      const items = JSON.parse(localStorage.getItem('foodItems') || '[]');
-      itemList.innerHTML = '';
-      const today = new Date();
-      
-      // Filter items based on search term
-      const filteredItems = items.filter(item => 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-
-      if (filteredItems.length === 0 && searchTerm) {
-        const li = document.createElement('li');
-        li.textContent = 'No items found';
-        li.style.textAlign = 'center';
-        li.style.color = '#888';
-        itemList.appendChild(li);
-        return;
-      }
-
-      filteredItems.forEach(({ name, expiry }) => {
-        // Find the original index for deletion
-        const index = items.findIndex(item => item.name === name && item.expiry === expiry);
-        const li = document.createElement('li');
-        const expDate = new Date(expiry);
-        li.textContent = `${name} - Expires on ${expiry}`;
-        if (expDate < today) li.style.color = 'red';
-
-        const delBtn = document.createElement('button');
-        delBtn.textContent = 'Delete';
-        delBtn.onclick = () => {
-          items.splice(index, 1);
-          localStorage.setItem('foodItems', JSON.stringify(items));
-          loadItems();
-        };
-
-        li.appendChild(delBtn);
-        itemList.appendChild(li);
-      });
-    }
-
-    // OCR Functionality
-    const cameraBtn = document.getElementById('cameraBtn');
-    const imageInput = document.getElementById('imageInput');
-    const ocrStatus = document.getElementById('ocrStatus');
-    const expiryInput = document.getElementById('expiry');
-
-    cameraBtn.addEventListener('click', () => {
-      imageInput.click();
-    });
-
-    imageInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      ocrStatus.textContent = '🔍 Scanning image...';
-      ocrStatus.className = 'ocr-status scanning';
-
-      try {
-        const result = await Tesseract.recognize(file, 'eng', {
-          logger: (m) => {
-            if (m.status === 'recognizing text') {
-              ocrStatus.textContent = `🔍 Processing... ${Math.round(m.progress * 100)}%`;
-            }
-          }
-        });
-
-        const text = result.data.text;
-        console.log('OCR Text:', text);
-
-        // Extract date from text
-        const date = extractDate(text);
-        
-        if (date) {
-          expiryInput.value = date;
-          ocrStatus.textContent = '✅ Date detected: ' + date;
-          ocrStatus.className = 'ocr-status success';
-        } else {
-          ocrStatus.textContent = '⚠️ No date found. Please enter manually.';
-          ocrStatus.className = 'ocr-status warning';
-        }
-      } catch (error) {
-        console.error('OCR Error:', error);
-        ocrStatus.textContent = '❌ Error scanning image. Try again.';
-        ocrStatus.className = 'ocr-status error';
-      }
-
-      // Clear status after 5 seconds
-      setTimeout(() => {
-        ocrStatus.textContent = '';
-        ocrStatus.className = 'ocr-status';
-      }, 5000);
-    });
-
-    function extractDate(text) {
-      // Common date patterns
-      const patterns = [
-        // YYYY-MM-DD, YYYY/MM/DD
-        /\b(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})\b/,
-        // DD-MM-YYYY, DD/MM/YYYY
-        /\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\b/,
-        // MM-DD-YYYY, MM/DD/YYYY
-        /\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\b/,
-        // DD MMM YYYY, DD MMMM YYYY
-        /\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})\b/i,
-        // MMM DD YYYY, MMMM DD YYYY
-        /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2}),?\s+(\d{4})\b/i,
-      ];
-
-      const monthMap = {
-        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
-        'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
-        'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
-      };
-
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        if (match) {
-          let year, month, day;
-
-          // Handle different date formats
-          if (pattern.source.includes('Jan|Feb')) {
-            // Month name formats
-            if (pattern.source.startsWith('\\b(\\d{1,2})')) {
-              // DD MMM YYYY
-              day = match[1].padStart(2, '0');
-              month = monthMap[match[2].toLowerCase().slice(0, 3)];
-              year = match[3];
-            } else {
-              // MMM DD YYYY
-              month = monthMap[match[1].toLowerCase().slice(0, 3)];
-              day = match[2].padStart(2, '0');
-              year = match[3];
-            }
-          } else if (match[1].length === 4) {
-            // YYYY-MM-DD
-            year = match[1];
-            month = match[2].padStart(2, '0');
-            day = match[3].padStart(2, '0');
-          } else {
-            // DD-MM-YYYY or MM-DD-YYYY
-            // Assume DD-MM-YYYY for European format
-            day = match[1].padStart(2, '0');
-            month = match[2].padStart(2, '0');
-            year = match[3];
-          }
-
-          // Return in HTML date input format (YYYY-MM-DD)
-          return `${year}-${month}-${day}`;
-        }
-      }
-
-      return null;
-    }
-
-    // Search functionality
-    const searchInput = document.getElementById('searchInput');
-    searchInput.addEventListener('input', (e) => {
-      loadItems(e.target.value);
-    });
-
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const name = document.getElementById('item').value;
-      const expiry = document.getElementById('expiry').value;
-
-      const items = JSON.parse(localStorage.getItem('foodItems') || '[]');
-      items.push({ name, expiry });
-      localStorage.setItem('foodItems', JSON.stringify(items));
-
-      form.reset();
-      loadItems();
-    });
-
-    loadItems();
-  </script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(() => console.log('✅ Service Worker Registered'))
-        .catch(error => console.error('❌ Service Worker Failed:', error));
-    }
-  </script>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="toastMessage"></span><button id="undoButton" type="button">Undo</button></div>
+  <div id="updateBanner" class="update-banner" hidden><span>A fresh version is ready.</span><button id="updateButton" type="button">Update</button></div>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
