@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
+  <a class="skip-link" href="#mainContent">Skip to content</a>
   <div class="app-shell">
     <header class="app-header">
       <div class="brand-lockup">
@@ -24,26 +25,47 @@
       </div>
       <button class="icon-button" id="dataButton" type="button" aria-label="Backup and restore" title="Backup and restore"><span aria-hidden="true">•••</span></button>
     </header>
-    <main>
-      <section class="summary" aria-label="Food summary">
-        <button class="summary-card danger" type="button" data-filter="expired"><strong id="expiredCount">0</strong><span>Expired</span></button>
-        <button class="summary-card warning" type="button" data-filter="soon"><strong id="soonCount">0</strong><span>Use soon</span></button>
-        <button class="summary-card" type="button" data-filter="active"><strong id="totalCount">0</strong><span>In kitchen</span></button>
-      </section>
-      <section class="inventory" aria-labelledby="inventoryHeading">
-        <div class="section-heading">
-          <div><p class="eyebrow">Inventory</p><h2 id="inventoryHeading">What to use next</h2></div>
-          <button class="primary-button" id="addButton" type="button">Add food</button>
+
+    <main id="mainContent">
+      <section class="app-view" id="todayView" data-view="today" aria-labelledby="todayHeading">
+        <div class="view-heading"><div><p class="eyebrow" id="todayDate"></p><h2 id="todayHeading">Use next</h2></div><button class="primary-button add-button" type="button">Add food</button></div>
+        <div class="summary" aria-label="Food needing attention">
+          <button class="summary-card danger" type="button" data-inventory-filter="expired"><strong id="expiredCount">0</strong><span>Expired</span></button>
+          <button class="summary-card warning" type="button" data-inventory-filter="today"><strong id="todayCount">0</strong><span>Today</span></button>
+          <button class="summary-card" type="button" data-inventory-filter="soon"><strong id="soonCount">0</strong><span>Next 3 days</span></button>
         </div>
+        <div id="todayGroups" class="inventory-groups" aria-live="polite"></div>
+      </section>
+
+      <section class="app-view" id="inventoryView" data-view="inventory" aria-labelledby="inventoryHeading" hidden>
+        <div class="view-heading"><div><p class="eyebrow">Everything active</p><h2 id="inventoryHeading">Inventory</h2></div><button class="primary-button add-button" type="button">Add food</button></div>
         <div class="toolbar">
           <label class="search-field"><span class="sr-only">Search food</span><input id="searchInput" type="search" placeholder="Search food" autocomplete="off"></label>
-          <label><span class="sr-only">Filter inventory</span><select id="filterSelect"><option value="active">Active</option><option value="expired">Expired</option><option value="soon">Use soon</option><option value="used">Used</option><option value="all">Everything</option></select></label>
+          <label><span class="sr-only">Filter inventory</span><select id="filterSelect"><option value="active">All active</option><option value="expired">Expired</option><option value="today">Today</option><option value="soon">Next 3 days</option><option value="later">Later</option><option value="Fridge">Fridge</option><option value="Freezer">Freezer</option><option value="Pantry">Pantry</option></select></label>
           <label><span class="sr-only">Sort inventory</span><select id="sortSelect"><option value="expiry">Expiry date</option><option value="name">Name</option><option value="recent">Recently added</option></select></label>
         </div>
         <div id="inventoryGroups" class="inventory-groups" aria-live="polite"></div>
       </section>
+
+      <section class="app-view" id="historyView" data-view="history" aria-labelledby="historyHeading" hidden>
+        <div class="view-heading"><div><p class="eyebrow">Last 30 days</p><h2 id="historyHeading">History</h2></div></div>
+        <div class="summary history-summary" aria-label="Food outcomes in the last 30 days">
+          <div class="summary-card"><strong id="usedCount">0</strong><span>Used</span></div>
+          <div class="summary-card warning"><strong id="wastedCount">0</strong><span>Wasted</span></div>
+          <div class="summary-card"><strong id="frozenCount">0</strong><span>Frozen</span></div>
+        </div>
+        <div class="history-toolbar"><label><span class="sr-only">Filter history</span><select id="historyFilter"><option value="all">All outcomes</option><option value="used">Used</option><option value="wasted">Wasted</option><option value="frozen">Frozen</option></select></label></div>
+        <div id="historyList" class="inventory-groups" aria-live="polite"></div>
+      </section>
     </main>
   </div>
+
+  <nav class="bottom-nav" aria-label="Primary navigation">
+    <button type="button" data-nav="today" aria-current="page"><span class="nav-symbol" aria-hidden="true">◷</span><span>Today</span></button>
+    <button type="button" data-nav="inventory"><span class="nav-symbol" aria-hidden="true">▤</span><span>Inventory</span></button>
+    <button class="nav-add add-button" type="button" aria-label="Add food"><span aria-hidden="true">+</span></button>
+    <button type="button" data-nav="history"><span class="nav-symbol" aria-hidden="true">↺</span><span>History</span></button>
+  </nav>
 
   <dialog id="itemDialog" class="app-dialog">
     <form id="itemForm">
@@ -52,6 +74,7 @@
         <button class="icon-button close-button" id="closeItemButton" type="button" aria-label="Close">×</button>
       </div>
       <input type="hidden" id="itemId">
+      <div id="recentFoods" class="recent-foods" hidden><span class="field-label">Recently added</span><div id="recentFoodButtons" class="date-shortcuts"></div></div>
       <label class="field full-width"><span>Food name</span><input id="itemName" type="text" required maxlength="80" autocomplete="off" placeholder="e.g. Greek yogurt"></label>
       <div class="form-grid">
         <label class="field"><span>Expiry date</span><input id="expiryDate" type="date" required></label>
@@ -59,18 +82,19 @@
         <label class="field"><span>Quantity</span><input id="quantity" type="number" inputmode="decimal" min="0" step="any" placeholder="1"></label>
         <label class="field"><span>Unit</span><input id="unit" type="text" maxlength="24" placeholder="pack, kg, bottle"></label>
       </div>
-      <div class="date-shortcuts" aria-label="Expiry date shortcuts">
-        <button type="button" class="chip" data-days="3">+3 days</button><button type="button" class="chip" data-days="7">+1 week</button><button type="button" class="chip" data-days="14">+2 weeks</button><button type="button" class="chip" data-days="30">+1 month</button>
-      </div>
+      <div class="date-shortcuts" aria-label="Expiry date shortcuts"><button type="button" class="chip" data-days="3">+3 days</button><button type="button" class="chip" data-days="7">+1 week</button><button type="button" class="chip" data-days="14">+2 weeks</button><button type="button" class="chip" data-days="30">+1 month</button></div>
       <label class="field full-width"><span>Notes <small>optional</small></span><textarea id="notes" rows="2" maxlength="240" placeholder="Opened on Monday, top shelf…"></textarea></label>
-      <div class="scan-row">
-        <button class="secondary-button" id="scanButton" type="button">Scan a date</button>
-        <input id="imageInput" type="file" accept="image/*" capture="environment" hidden>
-        <span id="ocrStatus" class="helper-text" aria-live="polite"></span>
-      </div>
+      <div class="scan-row"><button class="secondary-button" id="scanButton" type="button">Scan a date</button><input id="imageInput" type="file" accept="image/*" capture="environment" hidden><span id="ocrStatus" class="helper-text" aria-live="polite"></span></div>
+      <div id="ocrCandidates" class="date-shortcuts" aria-label="Dates found in image"></div>
       <p id="formError" class="form-error" role="alert"></p>
       <div class="dialog-actions"><button class="secondary-button" type="button" id="cancelItemButton">Cancel</button><button class="primary-button" type="submit">Save item</button></div>
     </form>
+  </dialog>
+
+  <dialog id="outcomeDialog" class="app-dialog compact-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Record outcome</p><h2 id="outcomeTitle">What happened?</h2></div><button class="icon-button close-button" id="closeOutcomeButton" type="button" aria-label="Close">×</button></div>
+    <p class="dialog-copy">This removes the item from your active inventory while keeping it in History.</p>
+    <div class="outcome-actions"><button class="primary-button" type="button" data-outcome="used">Used</button><button class="secondary-button" type="button" data-outcome="wasted">Wasted</button><button class="secondary-button" type="button" data-outcome="frozen">Frozen</button></div>
   </dialog>
 
   <dialog id="dataDialog" class="app-dialog compact-dialog">
