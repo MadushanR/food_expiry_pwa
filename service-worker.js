@@ -1,7 +1,7 @@
-const CACHE_NAME = "freshcheck-shell-v1";
+const CACHE_NAME = "freshcheck-shell-v2";
 const APP_SHELL = [
   "./", "./index.html", "./style.css", "./app.js", "./utils.js", "./storage.js",
-  "./manifest.json", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
+  "./manifest.json", "./icons/logo.png", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {
