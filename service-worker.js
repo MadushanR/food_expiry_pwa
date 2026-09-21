@@ -1,4 +1,4 @@
-const CACHE_NAME = "freshcheck-shell-v5";
+const CACHE_NAME = "freshcheck-shell-v7";
 const APP_SHELL = [
   "./", "./index.html", "./style.css", "./app.js", "./utils.js", "./storage.js", "./grocery-data.js",
   "./manifest.json", "./vendor/zxing-browser.min.js", "./vendor/ZXING-LICENSE.txt",

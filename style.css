@@ -6,6 +6,7 @@
   --warning: #8a683b; --danger: #9b4439; --radius: 18px;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { min-height: 100%; background: var(--bg); }
 body {
   min-height: 100%; margin: 0; background: var(--bg); color: var(--text);
@@ -37,9 +38,9 @@ h3 { font-size: 1rem; }
 }
 .app-view { margin-top: 36px; }
 .app-view[hidden] { display: none; }
-.summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 22px 0 30px; }
+.summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 22px 0 30px; }
 .summary-card {
-  min-height: 92px; padding: 14px 10px; border: 1px solid var(--line); border-radius: var(--radius);
+  min-width: 0; min-height: 92px; padding: 14px 10px; border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--surface); color: var(--text); text-align: left;
 }
 button.summary-card { cursor: pointer; }
@@ -91,6 +92,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .storage-guidance p { margin-top: 6px; }
 .storage-guidance a { color: var(--brown); }
 .use-it-up { display: grid; gap: 10px; margin: -8px 0 28px; }
+.use-it-up[hidden] { display: none; }
 .suggestion-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
 .suggestion-card { padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: var(--brown-soft); }
 .suggestion-card strong { display: block; margin-bottom: 6px; font-size: .9rem; }

@@ -12,7 +12,7 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **Feature implementation complete — release verification in progress**
+- **Feature implementation and release verification complete — PR preparation in progress**
 - Completed: 20 / 20
 - Last updated: 2026-09-20
 
@@ -75,9 +75,9 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Release completion checklist
 
-- [ ] Every selected feature above is complete.
-- [ ] Backups include every new persisted field/store and older backups still restore.
-- [ ] Offline app-shell caching includes every new local module or asset.
-- [ ] Automated tests and syntax checks pass.
-- [ ] Phone-sized light and dark layouts are visually checked.
+- [x] Every selected feature above is complete.
+- [x] Backups include every new persisted field/store and older backups still restore.
+- [x] Offline app-shell caching includes every new local module or asset.
+- [x] Automated tests and syntax checks pass.
+- [x] Phone-sized light and dark layouts are visually checked.
 - [ ] The branch is pushed and a pull request is opened with test evidence.
