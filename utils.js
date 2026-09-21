@@ -51,6 +51,8 @@ export function normalizeItem(raw = {}) {
     expiryDate: String(raw.expiryDate || raw.expiry || ""),
     openedDate: String(raw.openedDate || ""),
     freezeByDate: String(raw.freezeByDate || ""),
+    thawedDate: String(raw.thawedDate || ""),
+    originalExpiryDate: String(raw.originalExpiryDate || ""),
     afterOpeningDays: raw.afterOpeningDays === "" || raw.afterOpeningDays == null ? null : Number(raw.afterOpeningDays),
     lowStockThreshold: raw.lowStockThreshold === "" || raw.lowStockThreshold == null ? null : Number(raw.lowStockThreshold),
     targetQuantity: raw.targetQuantity === "" || raw.targetQuantity == null ? null : Number(raw.targetQuantity),
@@ -282,6 +284,7 @@ export function validateItem(item) {
   if (!parseLocalDate(item.expiryDate)) return "Choose a valid expiry date.";
   if (item.openedDate && !parseLocalDate(item.openedDate)) return "Choose a valid opened date.";
   if (item.freezeByDate && !parseLocalDate(item.freezeByDate)) return "Choose a valid freeze-by date.";
+  if (item.thawedDate && !parseLocalDate(item.thawedDate)) return "Choose a valid thawed date.";
   if (item.afterOpeningDays != null && (!Number.isInteger(item.afterOpeningDays) || item.afterOpeningDays < 1)) return "After-opening lifetime must be at least one day.";
   if (item.lowStockThreshold != null && (!Number.isFinite(item.lowStockThreshold) || item.lowStockThreshold < 0)) return "Low-stock level must be zero or more.";
   if (item.targetQuantity != null && (!Number.isFinite(item.targetQuantity) || item.targetQuantity < 0)) return "Target stock must be zero or more.";
@@ -323,6 +326,13 @@ export function suggestFreezeByDate(item, now = new Date()) {
   if (!useBy || daysUntil(effective, now) < 0) return "";
   const proposed = todayISO(new Date(useBy.getFullYear(), useBy.getMonth(), useBy.getDate() - group.lead));
   return proposed < todayISO(now) ? todayISO(now) : proposed;
+}
+
+export function suggestThawUseByDate(item, thawedDate = todayISO()) {
+  const thawed = parseLocalDate(thawedDate); if (!thawed) return "";
+  const name = normalizeProductName(item?.name);
+  const days = /fish|salmon|chicken|turkey|meat/.test(name) ? 1 : /bread|tortilla/.test(name) ? 3 : 2;
+  return addDaysISO(days, thawed);
 }
 
 export function addDaysISO(days, date = new Date()) {

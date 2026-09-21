@@ -4,7 +4,7 @@ import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
-  relativeExpiry, shoppingProgress, suggestFreezeByDate, suggestedRestockQuantity, useFirstPriority, validateGroceryItem, validateItem
+  relativeExpiry, shoppingProgress, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, useFirstPriority, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -204,6 +204,13 @@ test("freeze-by suggestions cover suitable foods and remain within today and use
   assert.equal(suggestFreezeByDate(normalizeItem({ name: "Bread", expiry: "2026-09-21", location: "Pantry" }), now), "2026-09-20");
   assert.equal(suggestFreezeByDate(normalizeItem({ name: "Rice", expiry: "2027-01-01", location: "Pantry" }), now), "");
   assert.equal(suggestFreezeByDate(normalizeItem({ name: "Salmon", expiry: "2026-09-25", location: "Freezer" }), now), "");
+});
+
+test("thaw tracking suggests a short editable use-by date by food type", () => {
+  assert.equal(suggestThawUseByDate({ name: "Salmon fillet" }, "2026-09-20"), "2026-09-21");
+  assert.equal(suggestThawUseByDate({ name: "Bread" }, "2026-09-20"), "2026-09-23");
+  assert.equal(suggestThawUseByDate({ name: "Mixed vegetables" }, "2026-09-20"), "2026-09-22");
+  assert.equal(suggestThawUseByDate({ name: "Chicken" }, "invalid"), "");
 });
 
 test("partial outcomes retain the remainder and create a separate history record", () => {

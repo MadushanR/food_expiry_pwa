@@ -152,6 +152,14 @@
     <div class="outcome-actions"><button class="primary-button" type="button" data-outcome="used">Used</button><button class="secondary-button" type="button" data-outcome="wasted">Wasted</button><button class="secondary-button" type="button" data-outcome="frozen">Frozen</button></div>
   </dialog>
 
+  <dialog id="thawDialog" class="app-dialog compact-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Return to inventory</p><h2 id="thawTitle">Thaw food</h2></div><button class="icon-button close-button" id="closeThawButton" type="button" aria-label="Close">×</button></div>
+    <p class="dialog-copy">Confirm when thawing started and adjust the suggested use-by date if the package guidance differs.</p>
+    <div class="form-grid"><label class="field"><span>Thawed date</span><input id="thawedDate" type="date"></label><label class="field"><span>Suggested use-by</span><input id="thawUseByDate" type="date"></label></div>
+    <p id="thawError" class="form-error" role="alert"></p>
+    <div class="dialog-actions"><button class="secondary-button" id="cancelThawButton" type="button">Cancel</button><button class="primary-button" id="confirmThawButton" type="button">Return to fridge</button></div>
+  </dialog>
+
   <dialog id="shoppingDialog" class="app-dialog shopping-dialog">
     <div class="dialog-header"><div><p class="eyebrow">Focused checklist</p><h2>Shopping mode</h2></div><button class="icon-button close-button" id="closeShoppingButton" type="button" aria-label="Close shopping mode">×</button></div>
     <div class="shopping-controls">

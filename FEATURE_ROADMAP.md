@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — E4: Thaw tracking**
-- Completed: 12 / 20
+- **In progress — E6: Storage guidance**
+- Completed: 13 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -52,9 +52,9 @@ This file is the hand-off source of truth for the current feature release. Work 
   - Show a short, understandable reason for the ranking.
 - [x] **E3 — Freeze-by suggestions** *(Complete — 2026-09-20)*
   - Suggest a freeze-by date for suitable foods while keeping it editable.
-- [ ] **E4 — Thaw tracking** *(In progress)*
+- [x] **E4 — Thaw tracking** *(Complete — 2026-09-20)*
   - Record when frozen food is returned to active inventory and suggest a new use-by date.
-- [ ] **E6 — Storage guidance** *(Pending)*
+- [ ] **E6 — Storage guidance** *(In progress)*
   - Provide concise, clearly identified guidance for common product categories.
 - [ ] **E7 — Use-it-up suggestions** *(Pending)*
   - Suggest practical combinations from foods that need attention soon.

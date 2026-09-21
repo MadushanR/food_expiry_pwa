@@ -1,7 +1,7 @@
 import {
   activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestFreezeByDate, suggestedRestockQuantity, todayISO, useFirstPriority,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, useFirstPriority,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -25,6 +25,7 @@ const elements = {
   recentFoods: $("#recentFoods"), recentFoodButtons: $("#recentFoodButtons"),
   outcomeDialog: $("#outcomeDialog"), outcomeTitle: $("#outcomeTitle"), outcomeQuantityField: $("#outcomeQuantityField"),
   outcomeQuantity: $("#outcomeQuantity"), outcomeUnit: $("#outcomeUnit"), outcomeError: $("#outcomeError"),
+  thawDialog: $("#thawDialog"), thawTitle: $("#thawTitle"), thawedDate: $("#thawedDate"), thawUseByDate: $("#thawUseByDate"), thawError: $("#thawError"),
   groceryList: $("#groceryList"), grocerySearch: $("#grocerySearch"), groceryStoreFilter: $("#groceryStoreFilter"),
   groceryStatusFilter: $("#groceryStatusFilter"), toBuyCount: $("#toBuyCount"),
   walmartNeedCount: $("#walmartNeedCount"), dollaramaNeedCount: $("#dollaramaNeedCount"),
@@ -127,7 +128,7 @@ function activeItemMarkup(item) {
   const quantity = item.quantity == null ? "" : `${item.quantity}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}`;
   return `<article class="food-item ${state}" data-id="${escapeHTML(item.id)}">
     <div><p class="food-name">${escapeHTML(item.name)}</p>
-      <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeLabel)}</span><span>${adjustedAfterOpening ? "Use by " : ""}${escapeHTML(formatDate(useBy))}</span>${printedExpiry}${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}${lowStock}</div>
+      <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeLabel)}</span><span>${adjustedAfterOpening ? "Use by " : ""}${escapeHTML(formatDate(useBy))}</span>${printedExpiry}${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}${item.thawedDate ? `<span>Thawed ${escapeHTML(formatDate(item.thawedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}${lowStock}</div>
       ${item.notes ? `<p class="food-notes">${escapeHTML(item.notes)}</p>` : ""}
       <p class="use-first-reason">Use first: ${escapeHTML(priority.reason)}</p>
       ${freezeBy ? `<p class="freeze-suggestion">${item.freezeByDate ? "Freeze by" : "Suggested freeze-by"}: ${escapeHTML(formatDate(freezeBy, { month: "short", day: "numeric" }))}</p>` : ""}
@@ -138,10 +139,12 @@ function activeItemMarkup(item) {
 
 function historyItemMarkup(item) {
   const label = item.status[0].toUpperCase() + item.status.slice(1);
+  const restoreLabel = item.status === "frozen" ? "Thaw" : "Restore";
+  const restoreAction = item.status === "frozen" ? "thaw" : "restore";
   const quantity = item.quantity == null ? "" : `<span>${escapeHTML(item.quantity)}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}</span>`;
   return `<article class="food-item ${item.status}" data-id="${escapeHTML(item.id)}">
     <div><p class="food-name">${escapeHTML(item.name)}</p><div class="food-meta"><span class="outcome-label">${label}</span><span>${escapeHTML(formatCompleted(item.completedAt))}</span><span>${escapeHTML(item.location)}</span>${quantity}</div></div>
-    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="restore" aria-label="Restore ${escapeHTML(item.name)} to inventory">Restore</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)} permanently">Delete</button></div>
+    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="${restoreAction}" aria-label="${restoreLabel} ${escapeHTML(item.name)}">${restoreLabel}</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)} permanently">Delete</button></div>
   </article>`;
 }
 
@@ -533,11 +536,29 @@ function openOutcome(item) {
   elements.outcomeDialog.showModal();
 }
 
+function openThaw(item) {
+  actionItemId = item.id; elements.thawTitle.textContent = `Thaw ${item.name}`; elements.thawError.textContent = "";
+  elements.thawedDate.value = todayISO(); elements.thawUseByDate.value = suggestThawUseByDate(item, elements.thawedDate.value);
+  elements.thawDialog.showModal();
+}
+
+async function confirmThaw() {
+  const item = items.find((entry) => entry.id === actionItemId); if (!item) return;
+  if (!elements.thawedDate.value || !elements.thawUseByDate.value) { elements.thawError.textContent = "Choose both thawed and use-by dates."; return; }
+  const thawed = normalizeItem({ ...item, status: "active", location: "Fridge", thawedDate: elements.thawedDate.value,
+    originalExpiryDate: item.originalExpiryDate || item.expiryDate, expiryDate: elements.thawUseByDate.value,
+    freezeByDate: "", completedAt: null, updatedAt: new Date().toISOString() });
+  const error = validateItem(thawed); if (error) { elements.thawError.textContent = error; return; }
+  await saveItem(db, thawed); const sync = await syncGroceryForItem(thawed, items.map((entry) => entry.id === item.id ? thawed : entry));
+  elements.thawDialog.close(); actionItemId = null; await refresh(); showToast(`${item.name} returned to the fridge${grocerySyncSuffix(sync)}`, item);
+}
+
 async function handleItemAction(event) {
   const button = event.target.closest("[data-action]"); if (!button) return;
   const item = items.find((entry) => entry.id === button.closest("[data-id]")?.dataset.id); if (!item) return;
   if (button.dataset.action === "edit") { openItemDialog(item); return; }
   if (button.dataset.action === "act") { openOutcome(item); return; }
+  if (button.dataset.action === "thaw") { openThaw(item); return; }
   if (button.dataset.action === "favorite") {
     const existingTemplate = findMatchingFoodTemplate(item, foodTemplates);
     if (existingTemplate) {
@@ -728,6 +749,12 @@ function bindEvents() {
     const template = foodTemplates.find((entry) => entry.id === button.dataset.templateId); if (template) fillFromTemplate(template);
   });
   $("#closeOutcomeButton").addEventListener("click", () => elements.outcomeDialog.close());
+  $("#closeThawButton").addEventListener("click", () => elements.thawDialog.close());
+  $("#cancelThawButton").addEventListener("click", () => elements.thawDialog.close());
+  $("#confirmThawButton").addEventListener("click", confirmThaw);
+  elements.thawedDate.addEventListener("change", () => {
+    const item = items.find((entry) => entry.id === actionItemId); if (item) elements.thawUseByDate.value = suggestThawUseByDate(item, elements.thawedDate.value);
+  });
   document.querySelectorAll("[data-outcome]").forEach((button) => button.addEventListener("click", () => recordOutcome(button.dataset.outcome)));
   $("#addGroceryButton").addEventListener("click", () => openGroceryDialog());
   $("#calendarButton").addEventListener("click", openCalendar);
