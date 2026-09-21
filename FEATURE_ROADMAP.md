@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — I2: Opened date**
-- Completed: 3 / 20
+- **In progress — I3: After-opening lifetime**
+- Completed: 4 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -28,10 +28,10 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **I1 — Partial quantities** *(Complete — 2026-09-20)*
   - Let users consume or waste part of an item without completing the whole record.
   - Record the partial outcome and retain the remaining quantity.
-- [ ] **I2 — Opened date** *(In progress)*
+- [x] **I2 — Opened date** *(Complete — 2026-09-20)*
   - Store and edit an optional opened date separately from expiry.
   - Display opened status on active inventory.
-- [ ] **I3 — After-opening lifetime** *(Pending)*
+- [ ] **I3 — After-opening lifetime** *(In progress)*
   - Store a reusable number of days after opening.
   - Calculate an effective use-by date without overwriting the printed expiry.
 - [ ] **I9 — Low-stock levels** *(Pending)*

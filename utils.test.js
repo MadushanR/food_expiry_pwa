@@ -22,15 +22,17 @@ test("date math uses calendar dates without UTC shifts", () => {
 test("invalid calendar dates are rejected", () => {
   assert.equal(parseLocalDate("2026-02-30"), null);
   assert.equal(validateItem(normalizeItem({ name: "Milk", expiry: "2026-02-30" })), "Choose a valid expiry date.");
+  assert.equal(validateItem(normalizeItem({ name: "Milk", expiry: "2026-09-25", openedDate: "2026-02-30" })), "Choose a valid opened date.");
 });
 
 test("legacy items are normalized into the new schema", () => {
-  const item = normalizeItem({ name: " Milk ", expiry: "2026-09-23", barcode: " 123 ", brand: " Farm " });
+  const item = normalizeItem({ name: " Milk ", expiry: "2026-09-23", openedDate: "2026-09-20", barcode: " 123 ", brand: " Farm " });
   assert.equal(item.name, "Milk");
   assert.equal(item.expiryDate, "2026-09-23");
   assert.equal(item.status, "active");
   assert.equal(item.barcode, "123");
   assert.equal(item.brand, "Farm");
+  assert.equal(item.openedDate, "2026-09-20");
   assert.ok(item.id);
 });
 

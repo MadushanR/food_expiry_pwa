@@ -49,6 +49,7 @@ export function normalizeItem(raw = {}) {
     id: String(raw.id || makeId()),
     name: String(raw.name || "").trim(),
     expiryDate: String(raw.expiryDate || raw.expiry || ""),
+    openedDate: String(raw.openedDate || ""),
     quantity: raw.quantity === "" || raw.quantity == null ? null : Number(raw.quantity),
     unit: String(raw.unit || "").trim(),
     location: String(raw.location || "Fridge"),
@@ -209,6 +210,7 @@ export function validateGroceryItem(item) {
 export function validateItem(item) {
   if (!item.name) return "Enter a food name.";
   if (!parseLocalDate(item.expiryDate)) return "Choose a valid expiry date.";
+  if (item.openedDate && !parseLocalDate(item.openedDate)) return "Choose a valid opened date.";
   if (item.quantity != null && (!Number.isFinite(item.quantity) || item.quantity < 0)) return "Quantity must be zero or more.";
   return "";
 }
