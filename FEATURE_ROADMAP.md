@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — E3: Freeze-by suggestions**
-- Completed: 11 / 20
+- **In progress — E4: Thaw tracking**
+- Completed: 12 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -50,9 +50,9 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **E2 — Use-first score** *(Complete — 2026-09-20)*
   - Rank active food using expiry, opened status, quantity, and storage.
   - Show a short, understandable reason for the ranking.
-- [ ] **E3 — Freeze-by suggestions** *(In progress)*
+- [x] **E3 — Freeze-by suggestions** *(Complete — 2026-09-20)*
   - Suggest a freeze-by date for suitable foods while keeping it editable.
-- [ ] **E4 — Thaw tracking** *(Pending)*
+- [ ] **E4 — Thaw tracking** *(In progress)*
   - Record when frozen food is returned to active inventory and suggest a new use-by date.
 - [ ] **E6 — Storage guidance** *(Pending)*
   - Provide concise, clearly identified guidance for common product categories.

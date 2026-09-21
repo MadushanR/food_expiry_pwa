@@ -4,7 +4,7 @@ import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
-  relativeExpiry, shoppingProgress, suggestedRestockQuantity, useFirstPriority, validateGroceryItem, validateItem
+  relativeExpiry, shoppingProgress, suggestFreezeByDate, suggestedRestockQuantity, useFirstPriority, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -197,6 +197,13 @@ test("use-first priority explains and ranks expiry, opening, quantity, and stora
   assert.match(priority.reason, /already opened/);
   assert.match(priority.reason, /3 cartons remaining/);
   assert.match(priority.reason, /kept in fridge/);
+});
+
+test("freeze-by suggestions cover suitable foods and remain within today and use-by", () => {
+  assert.equal(suggestFreezeByDate(normalizeItem({ name: "Chicken breast", expiry: "2026-09-25", location: "Fridge" }), now), "2026-09-23");
+  assert.equal(suggestFreezeByDate(normalizeItem({ name: "Bread", expiry: "2026-09-21", location: "Pantry" }), now), "2026-09-20");
+  assert.equal(suggestFreezeByDate(normalizeItem({ name: "Rice", expiry: "2027-01-01", location: "Pantry" }), now), "");
+  assert.equal(suggestFreezeByDate(normalizeItem({ name: "Salmon", expiry: "2026-09-25", location: "Freezer" }), now), "");
 });
 
 test("partial outcomes retain the remainder and create a separate history record", () => {

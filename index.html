@@ -108,6 +108,7 @@
       <div class="form-grid">
         <label class="field"><span>Expiry date</span><input id="expiryDate" type="date" required></label>
         <label class="field"><span>Opened date <small>optional</small></span><input id="openedDate" type="date"></label>
+        <label class="field"><span>Freeze-by date <small>optional</small></span><input id="freezeByDate" type="date"></label>
         <label class="field"><span>Storage</span><select id="location"><option>Fridge</option><option>Freezer</option><option>Pantry</option><option>Counter</option><option>Other</option></select></label>
         <label class="field"><span>Quantity</span><input id="quantity" type="number" inputmode="decimal" min="0" step="any" placeholder="1"></label>
         <label class="field"><span>Unit</span><input id="unit" type="text" maxlength="24" placeholder="pack, kg, bottle"></label>
@@ -115,6 +116,7 @@
         <label class="field"><span>Restock at or below <small>optional</small></span><input id="lowStockThreshold" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 2"></label>
         <label class="field"><span>Target stock after shopping <small>optional</small></span><input id="targetQuantity" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 12"></label>
       </div>
+      <button class="chip form-suggestion" id="suggestFreezeButton" type="button">Suggest a freeze-by date</button>
       <div class="form-grid product-fields">
         <label class="field"><span>Brand <small>optional</small></span><input id="brand" type="text" maxlength="80" autocomplete="off"></label>
         <label class="field"><span>Barcode <small>optional</small></span><input id="barcode" type="text" inputmode="numeric" maxlength="80" autocomplete="off"></label>

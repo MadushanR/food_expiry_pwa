@@ -50,6 +50,7 @@ export function normalizeItem(raw = {}) {
     name: String(raw.name || "").trim(),
     expiryDate: String(raw.expiryDate || raw.expiry || ""),
     openedDate: String(raw.openedDate || ""),
+    freezeByDate: String(raw.freezeByDate || ""),
     afterOpeningDays: raw.afterOpeningDays === "" || raw.afterOpeningDays == null ? null : Number(raw.afterOpeningDays),
     lowStockThreshold: raw.lowStockThreshold === "" || raw.lowStockThreshold == null ? null : Number(raw.lowStockThreshold),
     targetQuantity: raw.targetQuantity === "" || raw.targetQuantity == null ? null : Number(raw.targetQuantity),
@@ -280,6 +281,7 @@ export function validateItem(item) {
   if (!item.name) return "Enter a food name.";
   if (!parseLocalDate(item.expiryDate)) return "Choose a valid expiry date.";
   if (item.openedDate && !parseLocalDate(item.openedDate)) return "Choose a valid opened date.";
+  if (item.freezeByDate && !parseLocalDate(item.freezeByDate)) return "Choose a valid freeze-by date.";
   if (item.afterOpeningDays != null && (!Number.isInteger(item.afterOpeningDays) || item.afterOpeningDays < 1)) return "After-opening lifetime must be at least one day.";
   if (item.lowStockThreshold != null && (!Number.isFinite(item.lowStockThreshold) || item.lowStockThreshold < 0)) return "Low-stock level must be zero or more.";
   if (item.targetQuantity != null && (!Number.isFinite(item.targetQuantity) || item.targetQuantity < 0)) return "Target stock must be zero or more.";
@@ -306,6 +308,21 @@ export function useFirstPriority(item, now = new Date()) {
   score += storagePoints[item.location] ?? 2;
   if (item.location === "Counter" || item.location === "Fridge") reasons.push(`kept in ${item.location.toLowerCase()}`);
   return { score, reason: reasons.join(" · ") };
+}
+
+export function suggestFreezeByDate(item, now = new Date()) {
+  if (!item || item.location === "Freezer") return "";
+  const name = normalizeProductName(item.name);
+  const groups = [
+    { pattern: /chicken|salmon|fish|beef|pork|meat|turkey|paneer|tofu/, lead: 2 },
+    { pattern: /bread|tortilla/, lead: 3 },
+    { pattern: /milk|yogurt|cottage cheese/, lead: 2 },
+  ];
+  const group = groups.find((entry) => entry.pattern.test(name)); if (!group) return "";
+  const effective = effectiveExpiryDate(item); const useBy = parseLocalDate(effective);
+  if (!useBy || daysUntil(effective, now) < 0) return "";
+  const proposed = todayISO(new Date(useBy.getFullYear(), useBy.getMonth(), useBy.getDate() - group.lead));
+  return proposed < todayISO(now) ? todayISO(now) : proposed;
 }
 
 export function addDaysISO(days, date = new Date()) {

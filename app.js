@@ -1,7 +1,7 @@
 import {
   activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestedRestockQuantity, todayISO, useFirstPriority,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestFreezeByDate, suggestedRestockQuantity, todayISO, useFirstPriority,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -16,7 +16,7 @@ const elements = {
   expiredCount: $("#expiredCount"), todayCount: $("#todayCount"), soonCount: $("#soonCount"),
   usedCount: $("#usedCount"), wastedCount: $("#wastedCount"), frozenCount: $("#frozenCount"),
   itemDialog: $("#itemDialog"), itemForm: $("#itemForm"), itemId: $("#itemId"), itemName: $("#itemName"),
-  expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), targetQuantity: $("#targetQuantity"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
+  expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), freezeByDate: $("#freezeByDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), targetQuantity: $("#targetQuantity"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
   formError: $("#formError"), formTitle: $("#formTitle"), formEyebrow: $("#formEyebrow"),
@@ -122,6 +122,7 @@ function activeItemMarkup(item) {
   const printedExpiry = adjustedAfterOpening ? `<span>Label expiry ${escapeHTML(formatDate(item.expiryDate, { month: "short", day: "numeric" }))}</span>` : "";
   const lowStock = isLowStock(item, items) ? '<span class="low-stock-label">Low stock</span>' : "";
   const priority = useFirstPriority(item);
+  const freezeBy = item.freezeByDate || suggestFreezeByDate(item);
   const state = expiryState(useBy);
   const quantity = item.quantity == null ? "" : `${item.quantity}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}`;
   return `<article class="food-item ${state}" data-id="${escapeHTML(item.id)}">
@@ -129,6 +130,7 @@ function activeItemMarkup(item) {
       <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeLabel)}</span><span>${adjustedAfterOpening ? "Use by " : ""}${escapeHTML(formatDate(useBy))}</span>${printedExpiry}${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}${lowStock}</div>
       ${item.notes ? `<p class="food-notes">${escapeHTML(item.notes)}</p>` : ""}
       <p class="use-first-reason">Use first: ${escapeHTML(priority.reason)}</p>
+      ${freezeBy ? `<p class="freeze-suggestion">${item.freezeByDate ? "Freeze by" : "Suggested freeze-by"}: ${escapeHTML(formatDate(freezeBy, { month: "short", day: "numeric" }))}</p>` : ""}
     </div>
     <div class="item-menu"><button class="item-action primary-action" type="button" data-action="act" aria-label="Record an outcome for ${escapeHTML(item.name)}">Act</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action" type="button" data-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
   </article>`;
@@ -357,6 +359,7 @@ function openItemDialog(item = null) {
   elements.itemForm.reset(); elements.formError.textContent = "";
   elements.itemId.value = item?.id || ""; elements.itemName.value = item?.name || ""; elements.expiryDate.value = item?.expiryDate || todayISO();
   elements.openedDate.value = item?.openedDate || "";
+  elements.freezeByDate.value = item?.freezeByDate || "";
   elements.afterOpeningDays.value = item?.afterOpeningDays ?? "";
   elements.lowStockThreshold.value = item?.lowStockThreshold ?? "";
   elements.targetQuantity.value = item?.targetQuantity ?? "";
@@ -588,6 +591,7 @@ async function saveForm(event) {
   const item = normalizeItem({
     ...existing, id: existing?.id || makeId(), name: elements.itemName.value, expiryDate: elements.expiryDate.value,
     openedDate: elements.openedDate.value,
+    freezeByDate: elements.freezeByDate.value,
     afterOpeningDays: elements.afterOpeningDays.value,
     lowStockThreshold: elements.lowStockThreshold.value,
     targetQuantity: elements.targetQuantity.value,
@@ -700,6 +704,11 @@ function bindEvents() {
   [elements.search, elements.filter, elements.sort].forEach((element) => element.addEventListener("input", renderInventory));
   elements.historyFilter.addEventListener("input", renderHistory);
   document.querySelectorAll("[data-days]").forEach((button) => button.addEventListener("click", () => { elements.expiryDate.value = addDaysISO(button.dataset.days); }));
+  $("#suggestFreezeButton").addEventListener("click", () => {
+    const suggestion = suggestFreezeByDate(normalizeItem({ name: elements.itemName.value, expiryDate: elements.expiryDate.value, openedDate: elements.openedDate.value, afterOpeningDays: elements.afterOpeningDays.value, location: elements.location.value }));
+    if (suggestion) { elements.freezeByDate.value = suggestion; elements.formError.textContent = ""; }
+    else elements.formError.textContent = "No freeze-by suggestion is available for this item.";
+  });
   elements.recentFoodButtons.addEventListener("click", (event) => {
     const button = event.target.closest("[data-recent-id]"); if (!button) return;
     const template = items.find((item) => item.id === button.dataset.recentId); if (!template) return;
