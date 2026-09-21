@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — B3: Nutri-Score**
-- Completed: 16 / 20
+- **In progress — B8: Rapid scanning mode**
+- Completed: 17 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -62,9 +62,9 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **B2 — Nutrition summary** *(Complete — 2026-09-20)*
   - Save and display available calories, protein, carbohydrates, fat, sugar, sodium, and fibre from barcode lookup.
   - Clearly indicate missing or externally sourced information.
-- [ ] **B3 — Nutri-Score** *(In progress)*
+- [x] **B3 — Nutri-Score** *(Complete — 2026-09-20)*
   - Save and display an available Nutri-Score without treating it as medical advice.
-- [ ] **B8 — Rapid scanning mode** *(Pending)*
+- [ ] **B8 — Rapid scanning mode** *(In progress)*
   - Scan multiple products in one session without reopening the Add Food dialog.
   - Prevent accidental duplicate scan events.
 - [ ] **B10 — Unknown-product form** *(Pending)*

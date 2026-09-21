@@ -78,6 +78,7 @@ export function normalizeNutrition(raw = {}) {
   return {
     energyKcal: numberOrNull(raw.energyKcal), protein: numberOrNull(raw.protein), carbohydrates: numberOrNull(raw.carbohydrates),
     fat: numberOrNull(raw.fat), sugar: numberOrNull(raw.sugar), sodiumMg: numberOrNull(raw.sodiumMg), fibre: numberOrNull(raw.fibre),
+    nutriScore: /^[a-e]$/i.test(String(raw.nutriScore || "")) ? String(raw.nutriScore).toUpperCase() : "",
     basis: String(raw.basis || "per 100 g/ml"), source: String(raw.source || ""),
   };
 }
@@ -88,12 +89,13 @@ export function nutritionFromOpenFoodFacts(product = {}) {
     energyKcal: values["energy-kcal_100g"], protein: values.proteins_100g, carbohydrates: values.carbohydrates_100g,
     fat: values.fat_100g, sugar: values.sugars_100g,
     sodiumMg: values.sodium_100g == null ? null : Number(values.sodium_100g) * 1000,
-    fibre: values.fiber_100g, basis: "per 100 g/ml", source: "Open Food Facts",
+    fibre: values.fiber_100g, nutriScore: product.nutrition_grades || product.nutriscore_grade,
+    basis: "per 100 g/ml", source: "Open Food Facts",
   });
 }
 
 export function hasNutrition(nutrition) {
-  return ["energyKcal", "protein", "carbohydrates", "fat", "sugar", "sodiumMg", "fibre"].some((key) => nutrition?.[key] != null);
+  return ["energyKcal", "protein", "carbohydrates", "fat", "sugar", "sodiumMg", "fibre"].some((key) => nutrition?.[key] != null) || Boolean(nutrition?.nutriScore);
 }
 
 export function createOutcomeRecords(item, status, amount, completedAt = new Date().toISOString(), completedId = makeId()) {

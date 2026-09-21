@@ -236,10 +236,11 @@ test("Open Food Facts nutrition is normalized per 100 grams or millilitres", () 
   const nutrition = nutritionFromOpenFoodFacts({ nutriments: {
     "energy-kcal_100g": 120, proteins_100g: 8.2, carbohydrates_100g: 12, fat_100g: 4,
     sugars_100g: 6, sodium_100g: 0.12, fiber_100g: 2,
-  } });
+  }, nutrition_grades: "b" });
   assert.equal(nutrition.energyKcal, 120);
   assert.equal(nutrition.sodiumMg, 120);
   assert.equal(nutrition.source, "Open Food Facts");
+  assert.equal(nutrition.nutriScore, "B");
   assert.equal(hasNutrition(nutrition), true);
   assert.equal(hasNutrition(nutritionFromOpenFoodFacts({})), false);
 });

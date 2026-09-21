@@ -99,6 +99,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .nutrition-value strong, .nutrition-value span { display: block; }
 .nutrition-value strong { font-size: .85rem; }
 .nutrition-value span { margin-top: 2px; color: var(--muted); font-size: .65rem; }
+.nutri-score { color: #fff; }
+.nutri-score span { color: inherit; }
+.score-a { background: #2f7952; } .score-b { background: #6f8b4d; } .score-c { background: #aa873e; } .score-d { background: #a96536; } .score-e { background: #93473e; }
 .item-menu { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .item-action {
   min-width: 44px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px;

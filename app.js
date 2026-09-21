@@ -137,7 +137,7 @@ function activeItemMarkup(item) {
       <p class="use-first-reason">Use first: ${escapeHTML(priority.reason)}</p>
       ${freezeBy ? `<p class="freeze-suggestion">${item.freezeByDate ? "Freeze by" : "Suggested freeze-by"}: ${escapeHTML(formatDate(freezeBy, { month: "short", day: "numeric" }))}</p>` : ""}
       <details class="storage-guidance"><summary>General storage guidance</summary><p>${escapeHTML(storageGuidance(item))} <a href="https://www.canada.ca/en/health-canada/services/general-food-safety-tips/safe-food-storage.html" target="_blank" rel="noopener">Health Canada source</a></p></details>
-      ${nutrition ? `<details class="storage-guidance"><summary>Nutrition summary</summary><div class="nutrition-grid">${nutrition}</div><p>External data from Open Food Facts; confirm the package label.</p></details>` : ""}
+      ${nutrition ? `<details class="storage-guidance"><summary>Nutrition summary</summary><div class="nutrition-grid">${nutrition}</div><p>External data from Open Food Facts; confirm the package label. Nutri-Score is informational, not medical advice.</p></details>` : ""}
     </div>
     <div class="item-menu"><button class="item-action primary-action" type="button" data-action="act" aria-label="Record an outcome for ${escapeHTML(item.name)}">Act</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action" type="button" data-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
   </article>`;
@@ -361,7 +361,9 @@ function nutritionMarkup(nutrition) {
     ["Calories", nutrition.energyKcal, "kcal"], ["Protein", nutrition.protein, "g"], ["Carbs", nutrition.carbohydrates, "g"],
     ["Fat", nutrition.fat, "g"], ["Sugar", nutrition.sugar, "g"], ["Sodium", nutrition.sodiumMg, "mg"], ["Fibre", nutrition.fibre, "g"],
   ].filter(([, value]) => value != null);
-  return values.map(([label, value, unit]) => `<div class="nutrition-value"><strong>${escapeHTML(Number(value).toFixed(Number(value) % 1 ? 1 : 0))} ${unit}</strong><span>${label}</span></div>`).join("");
+  const nutrients = values.map(([label, value, unit]) => `<div class="nutrition-value"><strong>${escapeHTML(Number(value).toFixed(Number(value) % 1 ? 1 : 0))} ${unit}</strong><span>${label}</span></div>`).join("");
+  const score = nutrition.nutriScore ? `<div class="nutrition-value nutri-score score-${escapeHTML(nutrition.nutriScore.toLowerCase())}"><strong>${escapeHTML(nutrition.nutriScore)}</strong><span>Nutri-Score</span></div>` : "";
+  return score + nutrients;
 }
 
 function renderNutritionPreview() {
@@ -485,7 +487,7 @@ async function lookUpBarcode(raw) {
     const timer = setTimeout(() => controller.abort(), 9000);
     let response;
     try {
-      response = await fetch(`https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(parsed.barcode)}?fields=code,product_name,generic_name,brands,quantity,nutriments,nutrition_data_per&product_type=all`, { signal: controller.signal });
+      response = await fetch(`https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(parsed.barcode)}?fields=code,product_name,generic_name,brands,quantity,nutriments,nutrition_data_per,nutrition_grades,nutriscore_grade&product_type=all`, { signal: controller.signal });
     } finally { clearTimeout(timer); }
     if (!response.ok) throw new Error(response.status === 404 ? "not-found" : "lookup-failed");
     const payload = await response.json();
