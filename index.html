@@ -33,21 +33,23 @@
           <button class="summary-card warning" type="button" data-inventory-filter="today"><strong id="todayCount">0</strong><span>Today</span></button>
           <button class="summary-card" type="button" data-inventory-filter="soon"><strong id="soonCount">0</strong><span>Next 3 days</span></button>
         </div>
+        <section class="use-it-up" id="useItUpSection" hidden><div class="group-title"><h3>Use-it-up ideas</h3><span>Private, on-device suggestions</span></div><div id="useItUpList" class="suggestion-list"></div></section>
         <div id="todayGroups" class="inventory-groups" aria-live="polite"></div>
       </section>
 
       <section class="app-view" id="inventoryView" data-view="inventory" aria-labelledby="inventoryHeading" hidden>
-        <div class="view-heading"><div><p class="eyebrow">Everything active</p><h2 id="inventoryHeading">Inventory</h2></div><button class="primary-button add-button" type="button">Add food</button></div>
+        <div class="view-heading"><div><p class="eyebrow">Everything active</p><h2 id="inventoryHeading">Inventory</h2></div><div class="heading-actions"><button class="secondary-button" id="calendarButton" type="button">Calendar</button><button class="primary-button add-button" type="button">Add food</button></div></div>
         <div class="toolbar">
           <label class="search-field"><span class="sr-only">Search food</span><input id="searchInput" type="search" placeholder="Search food" autocomplete="off"></label>
           <label><span class="sr-only">Filter inventory</span><select id="filterSelect"><option value="active">All active</option><option value="expired">Expired</option><option value="today">Today</option><option value="soon">Next 3 days</option><option value="later">Later</option><option value="Fridge">Fridge</option><option value="Freezer">Freezer</option><option value="Pantry">Pantry</option></select></label>
-          <label><span class="sr-only">Sort inventory</span><select id="sortSelect"><option value="expiry">Expiry date</option><option value="name">Name</option><option value="recent">Recently added</option></select></label>
+          <label><span class="sr-only">Sort inventory</span><select id="sortSelect"><option value="use-first">Use first</option><option value="expiry">Expiry date</option><option value="name">Name</option><option value="recent">Recently added</option></select></label>
         </div>
+        <p class="gesture-hint">On touch screens, swipe left to act or right to edit. The visible buttons always work too.</p>
         <div id="inventoryGroups" class="inventory-groups" aria-live="polite"></div>
       </section>
 
       <section class="app-view" id="groceryView" data-view="grocery" aria-labelledby="groceryHeading" hidden>
-        <div class="view-heading"><div><p class="eyebrow">Next shopping trip</p><h2 id="groceryHeading">Grocery list</h2></div><button class="primary-button" id="addGroceryButton" type="button">Add item</button></div>
+        <div class="view-heading"><div><p class="eyebrow">Next shopping trip</p><h2 id="groceryHeading">Grocery list</h2></div><div class="heading-actions"><button class="secondary-button" id="startShoppingButton" type="button">Start shopping</button><button class="primary-button" id="addGroceryButton" type="button">Add item</button></div></div>
         <div class="summary" aria-label="Grocery shopping summary">
           <div class="summary-card warning"><strong id="toBuyCount">0</strong><span>To buy</span></div>
           <div class="summary-card"><strong id="walmartNeedCount">0</strong><span>Walmart</span></div>
@@ -59,6 +61,7 @@
           <label><span class="sr-only">Filter shopping status</span><select id="groceryStatusFilter"><option value="need">To buy</option><option value="all">All items</option><option value="have">Already have</option></select></label>
         </div>
         <div id="groceryList" class="inventory-groups" aria-live="polite"></div>
+        <section class="recent-trips" id="recentTripsSection" hidden><div class="group-title"><h3>Recent trips</h3><span>Buy a previous list again</span></div><div id="recentTrips" class="trip-list"></div></section>
       </section>
 
       <section class="app-view" id="historyView" data-view="history" aria-labelledby="historyHeading" hidden>
@@ -89,10 +92,12 @@
         <button class="icon-button close-button" id="closeItemButton" type="button" aria-label="Close">×</button>
       </div>
       <input type="hidden" id="itemId">
+      <input type="hidden" id="favoriteTemplateId">
       <div class="scan-row">
         <div><strong>Scan the package</strong><p class="helper-text">Fill product details from its barcode, then confirm the expiry date.</p></div>
         <button class="secondary-button" id="scanBarcodeButton" type="button">Scan barcode</button>
       </div>
+      <label class="check-field rapid-scan-option"><input id="rapidScanMode" type="checkbox"><span>Keep scanning after each saved product</span><small id="rapidScanCount">0 scanned this session</small></label>
       <section class="scanner-panel" id="scannerPanel" hidden aria-labelledby="scannerHeading">
         <div class="scanner-heading"><strong id="scannerHeading">Point at the barcode</strong><button class="text-button" id="stopScannerButton" type="button">Close scanner</button></div>
         <video id="barcodeVideo" playsinline muted></video>
@@ -100,20 +105,33 @@
         <p class="helper-text">Product information is provided by <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a>.</p>
         <div class="manual-barcode"><label class="field"><span>Or enter the number</span><input id="manualBarcode" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 628123456789"></label><button class="secondary-button" id="lookupBarcodeButton" type="button">Look up</button></div>
       </section>
+      <section class="unknown-product" id="unknownProductNotice" hidden role="status">
+        <div><strong>Product not found</strong><p>The barcode <span id="unknownProductBarcode"></span> is saved. Add the name and expiry below.</p></div>
+        <button class="secondary-button" id="unknownProductContinue" type="button">Enter details</button>
+      </section>
+      <div id="favoriteFoods" class="recent-foods" hidden><span class="field-label">Favourite templates</span><div id="favoriteFoodButtons" class="favorite-template-list"></div></div>
       <div id="recentFoods" class="recent-foods" hidden><span class="field-label">Recently added</span><div id="recentFoodButtons" class="date-shortcuts"></div></div>
       <label class="field full-width"><span>Food name</span><input id="itemName" type="text" required maxlength="80" autocomplete="off" placeholder="e.g. Greek yogurt"></label>
       <div class="form-grid">
         <label class="field"><span>Expiry date</span><input id="expiryDate" type="date" required></label>
+        <label class="field"><span>Opened date <small>optional</small></span><input id="openedDate" type="date"></label>
+        <label class="field"><span>Freeze-by date <small>optional</small></span><input id="freezeByDate" type="date"></label>
         <label class="field"><span>Storage</span><select id="location"><option>Fridge</option><option>Freezer</option><option>Pantry</option><option>Counter</option><option>Other</option></select></label>
         <label class="field"><span>Quantity</span><input id="quantity" type="number" inputmode="decimal" min="0" step="any" placeholder="1"></label>
         <label class="field"><span>Unit</span><input id="unit" type="text" maxlength="24" placeholder="pack, kg, bottle"></label>
+        <label class="field"><span>Use within days after opening <small>optional</small></span><input id="afterOpeningDays" type="number" inputmode="numeric" min="1" max="3650" step="1" placeholder="e.g. 7"></label>
+        <label class="field"><span>Restock at or below <small>optional</small></span><input id="lowStockThreshold" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 2"></label>
+        <label class="field"><span>Target stock after shopping <small>optional</small></span><input id="targetQuantity" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 12"></label>
       </div>
+      <button class="chip form-suggestion" id="suggestFreezeButton" type="button">Suggest a freeze-by date</button>
       <div class="form-grid product-fields">
         <label class="field"><span>Brand <small>optional</small></span><input id="brand" type="text" maxlength="80" autocomplete="off"></label>
         <label class="field"><span>Barcode <small>optional</small></span><input id="barcode" type="text" inputmode="numeric" maxlength="80" autocomplete="off"></label>
       </div>
+      <section class="nutrition-preview" id="nutritionPreview" hidden><div class="field-label">Nutrition from Open Food Facts</div><div id="nutritionPreviewGrid" class="nutrition-grid"></div><p class="helper-text">Values may be incomplete. Confirm important information on the package. Nutri-Score is informational, not medical advice.</p></section>
       <div class="date-shortcuts" aria-label="Expiry date shortcuts"><button type="button" class="chip" data-days="3">+3 days</button><button type="button" class="chip" data-days="7">+1 week</button><button type="button" class="chip" data-days="14">+2 weeks</button><button type="button" class="chip" data-days="30">+1 month</button></div>
       <label class="field full-width"><span>Notes <small>optional</small></span><textarea id="notes" rows="2" maxlength="240" placeholder="Opened on Monday, top shelf…"></textarea></label>
+      <label class="check-field"><input id="saveFavorite" type="checkbox"><span>Save these product details as a favourite template</span></label>
       <p id="formError" class="form-error" role="alert"></p>
       <div class="dialog-actions"><button class="secondary-button" type="button" id="cancelItemButton">Cancel</button><button class="primary-button" type="submit">Save item</button></div>
     </form>
@@ -136,8 +154,43 @@
 
   <dialog id="outcomeDialog" class="app-dialog compact-dialog">
     <div class="dialog-header"><div><p class="eyebrow">Record outcome</p><h2 id="outcomeTitle">What happened?</h2></div><button class="icon-button close-button" id="closeOutcomeButton" type="button" aria-label="Close">×</button></div>
-    <p class="dialog-copy">This removes the item from your active inventory while keeping it in History.</p>
+    <p class="dialog-copy">Record the whole item, or enter a smaller amount to keep the remainder in inventory.</p>
+    <label class="field" id="outcomeQuantityField"><span>Amount <small id="outcomeUnit"></small></span><input id="outcomeQuantity" type="number" inputmode="decimal" min="0" step="any"></label>
+    <p id="outcomeError" class="form-error" role="alert"></p>
     <div class="outcome-actions"><button class="primary-button" type="button" data-outcome="used">Used</button><button class="secondary-button" type="button" data-outcome="wasted">Wasted</button><button class="secondary-button" type="button" data-outcome="frozen">Frozen</button></div>
+  </dialog>
+
+  <dialog id="thawDialog" class="app-dialog compact-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Return to inventory</p><h2 id="thawTitle">Thaw food</h2></div><button class="icon-button close-button" id="closeThawButton" type="button" aria-label="Close">×</button></div>
+    <p class="dialog-copy">Confirm when thawing started and adjust the suggested use-by date if the package guidance differs.</p>
+    <div class="form-grid"><label class="field"><span>Thawed date</span><input id="thawedDate" type="date"></label><label class="field"><span>Suggested use-by</span><input id="thawUseByDate" type="date"></label></div>
+    <p id="thawError" class="form-error" role="alert"></p>
+    <div class="dialog-actions"><button class="secondary-button" id="cancelThawButton" type="button">Cancel</button><button class="primary-button" id="confirmThawButton" type="button">Return to fridge</button></div>
+  </dialog>
+
+  <dialog id="shoppingDialog" class="app-dialog shopping-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Focused checklist</p><h2>Shopping mode</h2></div><button class="icon-button close-button" id="closeShoppingButton" type="button" aria-label="Close shopping mode">×</button></div>
+    <div class="shopping-controls">
+      <label class="field"><span>Store</span><select id="shoppingStore"><option>Walmart</option><option>Dollarama</option><option>Other</option></select></label>
+      <div class="shopping-progress-copy"><strong id="shoppingProgressText">0 of 0 collected</strong><span id="shoppingWakeStatus">Screen stays awake when supported</span></div>
+    </div>
+    <div class="shopping-progress-track" aria-hidden="true"><span id="shoppingProgressBar"></span></div>
+    <div id="shoppingList" class="shopping-list" aria-live="polite"></div>
+    <div class="shopping-footer"><button class="primary-button" id="finishShoppingButton" type="button">Finish trip</button></div>
+  </dialog>
+
+  <dialog id="buyAgainDialog" class="app-dialog compact-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Previous trip</p><h2 id="buyAgainTitle">Buy again</h2></div><button class="icon-button close-button" id="closeBuyAgainButton" type="button" aria-label="Close">×</button></div>
+    <p class="dialog-copy">Choose which items should return to your To buy list.</p>
+    <div id="buyAgainList" class="buy-again-list"></div>
+    <div class="dialog-actions"><button class="secondary-button" id="cancelBuyAgainButton" type="button">Cancel</button><button class="primary-button" id="confirmBuyAgainButton" type="button">Add selected</button></div>
+  </dialog>
+
+  <dialog id="calendarDialog" class="app-dialog calendar-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Effective use-by dates</p><h2 id="calendarTitle">Expiry calendar</h2></div><button class="icon-button close-button" id="closeCalendarButton" type="button" aria-label="Close calendar">×</button></div>
+    <div class="calendar-nav"><button class="secondary-button" id="previousMonthButton" type="button" aria-label="Previous month">‹</button><strong id="calendarMonthLabel"></strong><button class="secondary-button" id="nextMonthButton" type="button" aria-label="Next month">›</button></div>
+    <div class="calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+    <div id="calendarGrid" class="calendar-grid"></div>
   </dialog>
 
   <dialog id="dataDialog" class="app-dialog compact-dialog">
