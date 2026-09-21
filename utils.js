@@ -156,6 +156,12 @@ export function parsePackageQuantity(value = "") {
   return { quantity: Number(match[1].replace(",", ".")), unit: match[2].trim().slice(0, 24) };
 }
 
+export function shoppingProgress(groceries = [], itemIds = []) {
+  const selected = itemIds.map((id) => groceries.find((item) => item.id === id)).filter(Boolean);
+  const bought = selected.filter((item) => item.have).length;
+  return { bought, total: selected.length, remaining: selected.length - bought };
+}
+
 export function normalizeGroceryItem(raw = {}) {
   const now = new Date().toISOString();
   return {

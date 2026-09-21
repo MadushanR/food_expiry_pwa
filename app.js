@@ -1,7 +1,7 @@
 import {
   addDaysISO, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, todayISO,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, todayISO,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -31,6 +31,8 @@ const elements = {
   groceryItemName: $("#groceryItemName"), groceryQuantity: $("#groceryQuantity"), groceryStore: $("#groceryStore"),
   groceryHave: $("#groceryHave"), groceryFormError: $("#groceryFormError"),
   groceryFormTitle: $("#groceryFormTitle"), groceryFormEyebrow: $("#groceryFormEyebrow"),
+  shoppingDialog: $("#shoppingDialog"), shoppingStore: $("#shoppingStore"), shoppingList: $("#shoppingList"),
+  shoppingProgressText: $("#shoppingProgressText"), shoppingProgressBar: $("#shoppingProgressBar"), shoppingWakeStatus: $("#shoppingWakeStatus"),
   dataDialog: $("#dataDialog"), dataStatus: $("#dataStatus"), themeSelect: $("#themeSelect"),
   toast: $("#toast"), toastMessage: $("#toastMessage"), undoButton: $("#undoButton"),
 };
@@ -45,6 +47,8 @@ let toastTimer = null;
 let scannerControls = null;
 let barcodeLookupPending = false;
 let barcodeLookupController = null;
+let shoppingItemIds = [];
+let wakeLock = null;
 
 function escapeHTML(value) {
   const node = document.createElement("span");
@@ -203,6 +207,50 @@ function renderGroceries() {
     const storeItems = visible.filter((item) => item.store === storeName);
     return `<section class="group"><div class="group-title"><h3>${escapeHTML(storeName)}</h3><span>${storeItems.filter((item) => !item.have).length} to buy</span></div><div class="item-list">${storeItems.map(groceryItemMarkup).join("")}</div></section>`;
   }).join("");
+}
+
+function renderShoppingMode() {
+  const tripItems = shoppingItemIds.map((id) => groceryItems.find((item) => item.id === id)).filter(Boolean);
+  const progress = shoppingProgress(groceryItems, shoppingItemIds);
+  elements.shoppingProgressText.textContent = `${progress.bought} of ${progress.total} collected`;
+  elements.shoppingProgressBar.style.width = `${progress.total ? (progress.bought / progress.total) * 100 : 0}%`;
+  if (!tripItems.length) {
+    elements.shoppingList.innerHTML = emptyMarkup("Nothing to buy here", `Your ${elements.shoppingStore.value} list is complete.`);
+    return;
+  }
+  elements.shoppingList.innerHTML = tripItems.map((item) => `<label class="shopping-row ${item.have ? "have" : ""}" data-shopping-id="${escapeHTML(item.id)}"><input class="shopping-toggle" type="checkbox" ${item.have ? "checked" : ""}><span><strong>${escapeHTML(item.name)}</strong><span>${item.quantity ? escapeHTML(item.quantity) : "Tap when it is in your cart"}</span></span></label>`).join("");
+}
+
+function beginStoreTrip(store) {
+  elements.shoppingStore.value = store;
+  shoppingItemIds = groceryItems.filter((item) => item.store === store && !item.have).map((item) => item.id);
+  renderShoppingMode();
+}
+
+async function requestWakeLock() {
+  if (!("wakeLock" in navigator) || document.visibilityState !== "visible") {
+    elements.shoppingWakeStatus.textContent = "Keep FreshCheck visible while shopping"; return;
+  }
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    elements.shoppingWakeStatus.textContent = "Screen will stay awake during this trip";
+    wakeLock.addEventListener("release", () => { wakeLock = null; });
+  } catch { elements.shoppingWakeStatus.textContent = "Keep FreshCheck visible while shopping"; }
+}
+
+async function releaseWakeLock() {
+  try { await wakeLock?.release(); } catch { /* The browser already released it. */ }
+  wakeLock = null;
+}
+
+async function openShoppingMode() {
+  const filteredStore = elements.groceryStoreFilter.value;
+  const store = filteredStore !== "all" ? filteredStore : (["Walmart", "Dollarama", "Other"].find((name) => groceryItems.some((item) => item.store === name && !item.have)) || "Walmart");
+  beginStoreTrip(store); elements.shoppingDialog.showModal(); await requestWakeLock();
+}
+
+async function closeShoppingMode() {
+  await releaseWakeLock(); elements.shoppingDialog.close(); shoppingItemIds = [];
 }
 
 function render() {
@@ -469,6 +517,13 @@ async function handleGroceryToggle(event) {
   await refresh(); showToast(checkbox.checked ? `${item.name} marked as already have` : `${item.name} added to shopping list`);
 }
 
+async function handleShoppingToggle(event) {
+  const checkbox = event.target.closest(".shopping-toggle"); if (!checkbox) return;
+  const item = groceryItems.find((entry) => entry.id === checkbox.closest("[data-shopping-id]")?.dataset.shoppingId); if (!item) return;
+  await saveGroceryItem(db, { ...item, have: checkbox.checked, updatedAt: new Date().toISOString() });
+  groceryItems = await getGroceryItems(db); renderGroceries(); renderShoppingMode();
+}
+
 function downloadBackup() {
   const payload = { app: "FreshCheck", version: 5, exportedAt: new Date().toISOString(), items, groceryItems, foodTemplates };
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
@@ -532,6 +587,15 @@ function bindEvents() {
   $("#closeOutcomeButton").addEventListener("click", () => elements.outcomeDialog.close());
   document.querySelectorAll("[data-outcome]").forEach((button) => button.addEventListener("click", () => recordOutcome(button.dataset.outcome)));
   $("#addGroceryButton").addEventListener("click", () => openGroceryDialog());
+  $("#startShoppingButton").addEventListener("click", openShoppingMode);
+  $("#closeShoppingButton").addEventListener("click", closeShoppingMode);
+  $("#finishShoppingButton").addEventListener("click", closeShoppingMode);
+  elements.shoppingDialog.addEventListener("cancel", (event) => { event.preventDefault(); closeShoppingMode(); });
+  elements.shoppingStore.addEventListener("change", () => beginStoreTrip(elements.shoppingStore.value));
+  elements.shoppingList.addEventListener("change", handleShoppingToggle);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && elements.shoppingDialog.open && !wakeLock) requestWakeLock();
+  });
   $("#closeGroceryButton").addEventListener("click", () => elements.groceryDialog.close());
   $("#cancelGroceryButton").addEventListener("click", () => elements.groceryDialog.close());
   elements.groceryForm.addEventListener("submit", saveGroceryForm);

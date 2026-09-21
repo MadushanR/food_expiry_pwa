@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — G1: Dedicated Shopping Mode**
-- Completed: 1 / 20
+- **In progress — I1: Partial quantities**
+- Completed: 2 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -22,10 +22,10 @@ This file is the hand-off source of truth for the current feature release. Work 
   - Save an inventory item as a reusable favourite independent of its inventory status.
   - Show favourites before recent foods in the Add Food form.
   - Tapping a favourite fills the reusable product fields; favourites can be removed.
-- [ ] **G1 — Dedicated Shopping Mode** *(In progress)*
+- [x] **G1 — Dedicated Shopping Mode** *(Complete — 2026-09-20)*
   - Provide a focused, large-control shopping view for one selected store.
   - Keep the screen awake when supported and show trip progress.
-- [ ] **I1 — Partial quantities** *(Pending)*
+- [ ] **I1 — Partial quantities** *(In progress)*
   - Let users consume or waste part of an item without completing the whole record.
   - Record the partial outcome and retain the remaining quantity.
 - [ ] **I2 — Opened date** *(Pending)*

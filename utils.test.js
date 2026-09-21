@@ -4,7 +4,7 @@ import {
   addDaysISO, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   hasActiveGroceryMatch, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
-  relativeExpiry, validateGroceryItem, validateItem
+  relativeExpiry, shoppingProgress, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -126,4 +126,13 @@ test("favourite food templates persist reusable product details and match items"
   assert.equal(findMatchingFoodTemplate({ favoriteTemplateId: "template-milk" }, [template]), template);
   assert.equal(findMatchingFoodTemplate({ name: "Milk", barcode: "628123456789" }, [template]), template);
   assert.equal(findMatchingFoodTemplate({ name: "Eggs" }, [template]), null);
+});
+
+test("shopping progress keeps purchased items in the active trip total", () => {
+  const groceries = [
+    normalizeGroceryItem({ id: "milk", name: "Milk", have: true }),
+    normalizeGroceryItem({ id: "eggs", name: "Eggs", have: false }),
+    normalizeGroceryItem({ id: "bread", name: "Bread", have: true }),
+  ];
+  assert.deepEqual(shoppingProgress(groceries, ["milk", "eggs"]), { bought: 1, total: 2, remaining: 1 });
 });
