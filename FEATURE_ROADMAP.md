@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — B2: Nutrition summary**
-- Completed: 15 / 20
+- **In progress — B3: Nutri-Score**
+- Completed: 16 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -59,10 +59,10 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **E7 — Use-it-up suggestions** *(Complete — 2026-09-20)*
   - Suggest practical combinations from foods that need attention soon.
   - Work locally without a paid AI service.
-- [ ] **B2 — Nutrition summary** *(In progress)*
+- [x] **B2 — Nutrition summary** *(Complete — 2026-09-20)*
   - Save and display available calories, protein, carbohydrates, fat, sugar, sodium, and fibre from barcode lookup.
   - Clearly indicate missing or externally sourced information.
-- [ ] **B3 — Nutri-Score** *(Pending)*
+- [ ] **B3 — Nutri-Score** *(In progress)*
   - Save and display an available Nutri-Score without treating it as medical advice.
 - [ ] **B8 — Rapid scanning mode** *(Pending)*
   - Scan multiple products in one session without reopening the Add Food dialog.

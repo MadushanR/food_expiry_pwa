@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
-  activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
+  activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, hasNutrition, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
   relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, useFirstPriority, useItUpSuggestions, validateGroceryItem, validateItem
 } from "./utils.js";
@@ -230,6 +230,18 @@ test("use-it-up ideas combine active foods when at least one needs attention", (
   assert.equal(suggestions[0].title, "Egg and vegetable omelette");
   assert.deepEqual(suggestions[0].ingredients, ["Eggs", "Cherry Tomatoes"]);
   assert.deepEqual(useItUpSuggestions([normalizeItem({ name: "Rice", expiry: "2027-01-01" })], now), []);
+});
+
+test("Open Food Facts nutrition is normalized per 100 grams or millilitres", () => {
+  const nutrition = nutritionFromOpenFoodFacts({ nutriments: {
+    "energy-kcal_100g": 120, proteins_100g: 8.2, carbohydrates_100g: 12, fat_100g: 4,
+    sugars_100g: 6, sodium_100g: 0.12, fiber_100g: 2,
+  } });
+  assert.equal(nutrition.energyKcal, 120);
+  assert.equal(nutrition.sodiumMg, 120);
+  assert.equal(nutrition.source, "Open Food Facts");
+  assert.equal(hasNutrition(nutrition), true);
+  assert.equal(hasNutrition(nutritionFromOpenFoodFacts({})), false);
 });
 
 test("partial outcomes retain the remainder and create a separate history record", () => {

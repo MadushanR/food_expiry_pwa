@@ -92,6 +92,13 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .suggestion-card strong { display: block; margin-bottom: 6px; font-size: .9rem; }
 .suggestion-card span { color: var(--muted); font-size: .75rem; line-height: 1.35; }
 .form-suggestion { justify-self: start; }
+.nutrition-preview { display: grid; gap: 8px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.nutrition-preview[hidden] { display: none; }
+.nutrition-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.nutrition-value { padding: 8px; border-radius: 10px; background: var(--surface-muted); text-align: center; }
+.nutrition-value strong, .nutrition-value span { display: block; }
+.nutrition-value strong { font-size: .85rem; }
+.nutrition-value span { margin-top: 2px; color: var(--muted); font-size: .65rem; }
 .item-menu { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .item-action {
   min-width: 44px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px;

@@ -1,6 +1,6 @@
 import {
   activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
-  groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
+  groupActiveItems, hasActiveGroceryMatch, hasNutrition, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
   parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, useFirstPriority, useItUpSuggestions,
   validateGroceryItem, validateItem
 } from "./utils.js";
@@ -20,6 +20,7 @@ const elements = {
   expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), freezeByDate: $("#freezeByDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), targetQuantity: $("#targetQuantity"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
+  nutritionPreview: $("#nutritionPreview"), nutritionPreviewGrid: $("#nutritionPreviewGrid"),
   formError: $("#formError"), formTitle: $("#formTitle"), formEyebrow: $("#formEyebrow"),
   favoriteTemplateId: $("#favoriteTemplateId"), saveFavorite: $("#saveFavorite"),
   favoriteFoods: $("#favoriteFoods"), favoriteFoodButtons: $("#favoriteFoodButtons"),
@@ -58,6 +59,7 @@ let shoppingItemIds = [];
 let wakeLock = null;
 let selectedTripId = null;
 let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let pendingNutrition = null;
 
 function escapeHTML(value) {
   const node = document.createElement("span");
@@ -125,6 +127,7 @@ function activeItemMarkup(item) {
   const lowStock = isLowStock(item, items) ? '<span class="low-stock-label">Low stock</span>' : "";
   const priority = useFirstPriority(item);
   const freezeBy = item.freezeByDate || suggestFreezeByDate(item);
+  const nutrition = hasNutrition(item.nutrition) ? nutritionMarkup(item.nutrition) : "";
   const state = expiryState(useBy);
   const quantity = item.quantity == null ? "" : `${item.quantity}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}`;
   return `<article class="food-item ${state}" data-id="${escapeHTML(item.id)}">
@@ -134,6 +137,7 @@ function activeItemMarkup(item) {
       <p class="use-first-reason">Use first: ${escapeHTML(priority.reason)}</p>
       ${freezeBy ? `<p class="freeze-suggestion">${item.freezeByDate ? "Freeze by" : "Suggested freeze-by"}: ${escapeHTML(formatDate(freezeBy, { month: "short", day: "numeric" }))}</p>` : ""}
       <details class="storage-guidance"><summary>General storage guidance</summary><p>${escapeHTML(storageGuidance(item))} <a href="https://www.canada.ca/en/health-canada/services/general-food-safety-tips/safe-food-storage.html" target="_blank" rel="noopener">Health Canada source</a></p></details>
+      ${nutrition ? `<details class="storage-guidance"><summary>Nutrition summary</summary><div class="nutrition-grid">${nutrition}</div><p>External data from Open Food Facts; confirm the package label.</p></details>` : ""}
     </div>
     <div class="item-menu"><button class="item-action primary-action" type="button" data-action="act" aria-label="Record an outcome for ${escapeHTML(item.name)}">Act</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action" type="button" data-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
   </article>`;
@@ -352,6 +356,19 @@ function renderFavouriteFoods() {
   elements.favoriteFoodButtons.innerHTML = favourites.map((template) => `<span class="favorite-template"><button type="button" class="chip" data-template-id="${escapeHTML(template.id)}">★ ${escapeHTML(template.name)}</button><button type="button" class="remove-template" data-remove-template-id="${escapeHTML(template.id)}" aria-label="Remove ${escapeHTML(template.name)} from favourites">×</button></span>`).join("");
 }
 
+function nutritionMarkup(nutrition) {
+  const values = [
+    ["Calories", nutrition.energyKcal, "kcal"], ["Protein", nutrition.protein, "g"], ["Carbs", nutrition.carbohydrates, "g"],
+    ["Fat", nutrition.fat, "g"], ["Sugar", nutrition.sugar, "g"], ["Sodium", nutrition.sodiumMg, "mg"], ["Fibre", nutrition.fibre, "g"],
+  ].filter(([, value]) => value != null);
+  return values.map(([label, value, unit]) => `<div class="nutrition-value"><strong>${escapeHTML(Number(value).toFixed(Number(value) % 1 ? 1 : 0))} ${unit}</strong><span>${label}</span></div>`).join("");
+}
+
+function renderNutritionPreview() {
+  const visible = hasNutrition(pendingNutrition); elements.nutritionPreview.hidden = !visible;
+  elements.nutritionPreviewGrid.innerHTML = visible ? nutritionMarkup(pendingNutrition) : "";
+}
+
 function fillFromTemplate(template) {
   elements.favoriteTemplateId.value = template.id; elements.saveFavorite.checked = true;
   elements.itemName.value = template.name; elements.location.value = template.location;
@@ -371,6 +388,7 @@ function openItemDialog(item = null) {
   elements.afterOpeningDays.value = item?.afterOpeningDays ?? "";
   elements.lowStockThreshold.value = item?.lowStockThreshold ?? "";
   elements.targetQuantity.value = item?.targetQuantity ?? "";
+  pendingNutrition = item?.nutrition || null; renderNutritionPreview();
   elements.quantity.value = item?.quantity ?? ""; elements.unit.value = item?.unit || ""; elements.location.value = item?.location || "Fridge"; elements.notes.value = item?.notes || "";
   elements.barcode.value = item?.barcode || ""; elements.brand.value = item?.brand || ""; elements.manualBarcode.value = "";
   const favourite = item ? findMatchingFoodTemplate(item, foodTemplates) : null;
@@ -431,6 +449,7 @@ function fillProductFields(product, parsed, source) {
   if (product?.afterOpeningDays != null) elements.afterOpeningDays.value = product.afterOpeningDays;
   if (product?.lowStockThreshold != null) elements.lowStockThreshold.value = product.lowStockThreshold;
   if (product?.targetQuantity != null) elements.targetQuantity.value = product.targetQuantity;
+  pendingNutrition = product?.nutrition?.source ? product.nutrition : nutritionFromOpenFoodFacts(product); renderNutritionPreview();
   elements.barcode.value = parsed.barcode;
   elements.expiryDate.value = parsed.expiryDate || "";
   const dateMessage = parsed.expiryDate
@@ -466,7 +485,7 @@ async function lookUpBarcode(raw) {
     const timer = setTimeout(() => controller.abort(), 9000);
     let response;
     try {
-      response = await fetch(`https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(parsed.barcode)}?fields=code,product_name,generic_name,brands,quantity&product_type=all`, { signal: controller.signal });
+      response = await fetch(`https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(parsed.barcode)}?fields=code,product_name,generic_name,brands,quantity,nutriments,nutrition_data_per&product_type=all`, { signal: controller.signal });
     } finally { clearTimeout(timer); }
     if (!response.ok) throw new Error(response.status === 404 ? "not-found" : "lookup-failed");
     const payload = await response.json();
@@ -621,6 +640,7 @@ async function saveForm(event) {
     afterOpeningDays: elements.afterOpeningDays.value,
     lowStockThreshold: elements.lowStockThreshold.value,
     targetQuantity: elements.targetQuantity.value,
+    nutrition: pendingNutrition,
     quantity: elements.quantity.value, unit: elements.unit.value, location: elements.location.value, notes: elements.notes.value,
     barcode: elements.barcode.value, brand: elements.brand.value,
     favoriteTemplateId: elements.saveFavorite.checked ? (elements.favoriteTemplateId.value || existing?.favoriteTemplateId || makeId()) : null,
@@ -743,6 +763,7 @@ function bindEvents() {
     elements.lowStockThreshold.value = template.lowStockThreshold ?? "";
     elements.targetQuantity.value = template.targetQuantity ?? "";
     elements.brand.value = template.brand || ""; elements.barcode.value = template.barcode || "";
+    pendingNutrition = template.nutrition || null; renderNutritionPreview();
   });
   elements.favoriteFoodButtons.addEventListener("click", async (event) => {
     const removeButton = event.target.closest("[data-remove-template-id]");

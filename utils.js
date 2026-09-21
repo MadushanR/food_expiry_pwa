@@ -53,6 +53,7 @@ export function normalizeItem(raw = {}) {
     freezeByDate: String(raw.freezeByDate || ""),
     thawedDate: String(raw.thawedDate || ""),
     originalExpiryDate: String(raw.originalExpiryDate || ""),
+    nutrition: normalizeNutrition(raw.nutrition),
     afterOpeningDays: raw.afterOpeningDays === "" || raw.afterOpeningDays == null ? null : Number(raw.afterOpeningDays),
     lowStockThreshold: raw.lowStockThreshold === "" || raw.lowStockThreshold == null ? null : Number(raw.lowStockThreshold),
     targetQuantity: raw.targetQuantity === "" || raw.targetQuantity == null ? null : Number(raw.targetQuantity),
@@ -70,6 +71,29 @@ export function normalizeItem(raw = {}) {
     updatedAt: raw.updatedAt || now,
     completedAt: raw.completedAt || null,
   };
+}
+
+export function normalizeNutrition(raw = {}) {
+  const numberOrNull = (value) => value === "" || value == null || !Number.isFinite(Number(value)) ? null : Number(value);
+  return {
+    energyKcal: numberOrNull(raw.energyKcal), protein: numberOrNull(raw.protein), carbohydrates: numberOrNull(raw.carbohydrates),
+    fat: numberOrNull(raw.fat), sugar: numberOrNull(raw.sugar), sodiumMg: numberOrNull(raw.sodiumMg), fibre: numberOrNull(raw.fibre),
+    basis: String(raw.basis || "per 100 g/ml"), source: String(raw.source || ""),
+  };
+}
+
+export function nutritionFromOpenFoodFacts(product = {}) {
+  const values = product.nutriments || {};
+  return normalizeNutrition({
+    energyKcal: values["energy-kcal_100g"], protein: values.proteins_100g, carbohydrates: values.carbohydrates_100g,
+    fat: values.fat_100g, sugar: values.sugars_100g,
+    sodiumMg: values.sodium_100g == null ? null : Number(values.sodium_100g) * 1000,
+    fibre: values.fiber_100g, basis: "per 100 g/ml", source: "Open Food Facts",
+  });
+}
+
+export function hasNutrition(nutrition) {
+  return ["energyKcal", "protein", "carbohydrates", "fat", "sugar", "sodiumMg", "fibre"].some((key) => nutrition?.[key] != null);
 }
 
 export function createOutcomeRecords(item, status, amount, completedAt = new Date().toISOString(), completedId = makeId()) {
