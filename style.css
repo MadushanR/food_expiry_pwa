@@ -172,6 +172,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .data-actions + .helper-text { display: block; margin-top: 14px; }
 .check-field { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: .9rem; font-weight: 650; }
 .check-field input { width: 22px; height: 22px; min-height: 22px; margin: 0; accent-color: var(--accent); }
+.rapid-scan-option { flex-wrap: wrap; }
+.rapid-scan-option small { margin-left: auto; color: var(--muted); font-weight: 500; }
 .settings-field { margin-top: 20px; }
 .settings-divider { margin: 20px 0; border: 0; border-top: 1px solid var(--line); }
 .shopping-dialog { width: min(680px, 100%); height: min(900px, 100dvh); max-height: 100dvh; border-radius: 0; padding-bottom: calc(22px + env(safe-area-inset-bottom)); }

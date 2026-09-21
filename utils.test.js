@@ -3,12 +3,20 @@ import assert from "node:assert/strict";
 import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, hasNutrition, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
-  parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
+  parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode,
   relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, useFirstPriority, useItUpSuggestions, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
 const now = new Date(2026, 8, 20, 12);
+
+test("rapid scanning registers each barcode once per session", () => {
+  const seen = new Set();
+  assert.deepEqual(registerRapidBarcode("0012345", seen), { barcode: "0012345", duplicate: false });
+  assert.deepEqual(registerRapidBarcode("12345", seen), { barcode: "12345", duplicate: true });
+  assert.equal(seen.size, 1);
+  assert.deepEqual(registerRapidBarcode("not-a-barcode", seen), { barcode: "", duplicate: false });
+});
 
 test("date math uses calendar dates without UTC shifts", () => {
   assert.equal(daysUntil("2026-09-20", now), 0);

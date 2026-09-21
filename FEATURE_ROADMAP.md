@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — B8: Rapid scanning mode**
-- Completed: 17 / 20
+- **In progress — B10: Unknown-product form**
+- Completed: 18 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -64,10 +64,10 @@ This file is the hand-off source of truth for the current feature release. Work 
   - Clearly indicate missing or externally sourced information.
 - [x] **B3 — Nutri-Score** *(Complete — 2026-09-20)*
   - Save and display an available Nutri-Score without treating it as medical advice.
-- [ ] **B8 — Rapid scanning mode** *(In progress)*
+- [x] **B8 — Rapid scanning mode** *(Complete — 2026-09-20)*
   - Scan multiple products in one session without reopening the Add Food dialog.
   - Prevent accidental duplicate scan events.
-- [ ] **B10 — Unknown-product form** *(Pending)*
+- [ ] **B10 — Unknown-product form** *(In progress)*
   - Turn a failed barcode lookup into a fast manual product entry while retaining the barcode.
 - [ ] **U4 — Swipe actions** *(Pending)*
   - Add accessible swipe shortcuts for common inventory actions on touch devices.

@@ -1,7 +1,7 @@
 import {
   activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, hasNutrition, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, useFirstPriority, useItUpSuggestions,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, useFirstPriority, useItUpSuggestions,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -20,6 +20,7 @@ const elements = {
   expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), freezeByDate: $("#freezeByDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), targetQuantity: $("#targetQuantity"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
+  rapidScanMode: $("#rapidScanMode"), rapidScanCount: $("#rapidScanCount"),
   nutritionPreview: $("#nutritionPreview"), nutritionPreviewGrid: $("#nutritionPreviewGrid"),
   formError: $("#formError"), formTitle: $("#formTitle"), formEyebrow: $("#formEyebrow"),
   favoriteTemplateId: $("#favoriteTemplateId"), saveFavorite: $("#saveFavorite"),
@@ -60,6 +61,7 @@ let wakeLock = null;
 let selectedTripId = null;
 let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let pendingNutrition = null;
+let rapidScannedBarcodes = new Set();
 
 function escapeHTML(value) {
   const node = document.createElement("span");
@@ -434,6 +436,18 @@ function stopScanner() {
   if (elements.barcodeVideo) elements.barcodeVideo.srcObject = null;
 }
 
+function updateRapidScanCount() {
+  const count = rapidScannedBarcodes.size;
+  elements.rapidScanCount.textContent = `${count} scanned this session`;
+}
+
+function endRapidScanSession() {
+  stopScanner();
+  rapidScannedBarcodes.clear();
+  elements.rapidScanMode.checked = false;
+  updateRapidScanCount();
+}
+
 function scannerMessage(message) {
   elements.scannerStatus.textContent = message;
 }
@@ -473,6 +487,15 @@ async function lookUpBarcode(raw) {
   if (barcodeLookupPending) return;
   const parsed = parseGS1Barcode(raw);
   if (!parsed.barcode) { scannerMessage("Enter or scan a valid barcode number."); return; }
+  if (elements.rapidScanMode.checked) {
+    const registration = registerRapidBarcode(raw, rapidScannedBarcodes);
+    if (registration.duplicate) {
+      stopScannerCameraOnly();
+      scannerMessage("Already scanned in this session. Move this package away, then tap Scan barcode for the next item.");
+      return;
+    }
+    updateRapidScanCount();
+  }
   barcodeLookupPending = true; stopScannerCameraOnly();
   scannerMessage("Barcode found. Looking up product details…");
   let controller = null;
@@ -520,7 +543,7 @@ async function startScanner() {
     scannerControls = await reader.decodeFromConstraints(
       { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
       elements.barcodeVideo,
-      (result, _error, controls) => { if (result && !barcodeLookupPending) { controls?.stop?.(); lookUpBarcode(result.getText()); } }
+      (result) => { if (result && !barcodeLookupPending) lookUpBarcode(result.getText()); }
     );
   } catch {
     stopScannerCameraOnly();
@@ -635,6 +658,7 @@ async function recordOutcome(status) {
 async function saveForm(event) {
   event.preventDefault();
   const existing = items.find((item) => item.id === elements.itemId.value);
+  const continueRapidScan = elements.rapidScanMode.checked && !existing;
   const item = normalizeItem({
     ...existing, id: existing?.id || makeId(), name: elements.itemName.value, expiryDate: elements.expiryDate.value,
     openedDate: elements.openedDate.value,
@@ -660,6 +684,12 @@ async function saveForm(event) {
   await saveItem(db, item); const sync = await syncGroceryForItem(item, items.map((entry) => entry.id === item.id ? item : entry).concat(existing ? [] : [item]));
   stopScanner(); elements.itemDialog.close(); await refresh();
   showToast(grocery ? `${item.name} saved${grocerySyncSuffix(sync) || " · grocery list checked"}` : (existing ? `${item.name} updated` : `${item.name} added`));
+  if (continueRapidScan) {
+    openItemDialog();
+    elements.rapidScanMode.checked = true;
+    updateRapidScanCount();
+    await startScanner();
+  }
 }
 
 async function saveGroceryForm(event) {
@@ -740,13 +770,17 @@ function bindEvents() {
     const summary = event.target.closest("[data-inventory-filter]");
     if (summary) { elements.filter.value = summary.dataset.inventoryFilter; setView("inventory"); renderInventory(); }
   });
-  $("#cancelItemButton").addEventListener("click", () => { stopScanner(); elements.itemDialog.close(); });
-  $("#closeItemButton").addEventListener("click", () => { stopScanner(); elements.itemDialog.close(); });
-  elements.itemDialog.addEventListener("cancel", stopScanner);
+  $("#cancelItemButton").addEventListener("click", () => { endRapidScanSession(); elements.itemDialog.close(); });
+  $("#closeItemButton").addEventListener("click", () => { endRapidScanSession(); elements.itemDialog.close(); });
+  elements.itemDialog.addEventListener("cancel", endRapidScanSession);
   $("#scanBarcodeButton").addEventListener("click", startScanner);
   $("#stopScannerButton").addEventListener("click", stopScanner);
   $("#lookupBarcodeButton").addEventListener("click", () => lookUpBarcode(elements.manualBarcode.value));
   elements.manualBarcode.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); lookUpBarcode(elements.manualBarcode.value); } });
+  elements.rapidScanMode.addEventListener("change", () => {
+    if (!elements.rapidScanMode.checked) rapidScannedBarcodes.clear();
+    updateRapidScanCount();
+  });
   elements.itemForm.addEventListener("submit", saveForm);
   [elements.todayGroups, elements.inventoryGroups, elements.historyList].forEach((container) => container.addEventListener("click", handleItemAction));
   [elements.search, elements.filter, elements.sort].forEach((element) => element.addEventListener("input", renderInventory));

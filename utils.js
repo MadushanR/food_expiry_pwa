@@ -73,6 +73,15 @@ export function normalizeItem(raw = {}) {
   };
 }
 
+export function registerRapidBarcode(raw, seen = new Set()) {
+  const barcode = parseGS1Barcode(raw).barcode;
+  if (!barcode) return { barcode: "", duplicate: false };
+  const key = barcode.replace(/^0+/, "") || "0";
+  const duplicate = seen.has(key);
+  if (!duplicate) seen.add(key);
+  return { barcode, duplicate };
+}
+
 export function normalizeNutrition(raw = {}) {
   const numberOrNull = (value) => value === "" || value == null || !Number.isFinite(Number(value)) ? null : Number(value);
   return {
