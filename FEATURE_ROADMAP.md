@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — I3: After-opening lifetime**
-- Completed: 4 / 20
+- **In progress — I9: Low-stock levels**
+- Completed: 5 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -31,10 +31,10 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **I2 — Opened date** *(Complete — 2026-09-20)*
   - Store and edit an optional opened date separately from expiry.
   - Display opened status on active inventory.
-- [ ] **I3 — After-opening lifetime** *(In progress)*
+- [x] **I3 — After-opening lifetime** *(Complete — 2026-09-20)*
   - Store a reusable number of days after opening.
   - Calculate an effective use-by date without overwriting the printed expiry.
-- [ ] **I9 — Low-stock levels** *(Pending)*
+- [ ] **I9 — Low-stock levels** *(In progress)*
   - Configure an optional minimum quantity per reusable product.
   - Mark the linked grocery as To buy when active stock reaches the threshold.
 - [ ] **G4 — Low-stock replenishment** *(Pending)*

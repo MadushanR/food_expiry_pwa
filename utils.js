@@ -50,6 +50,7 @@ export function normalizeItem(raw = {}) {
     name: String(raw.name || "").trim(),
     expiryDate: String(raw.expiryDate || raw.expiry || ""),
     openedDate: String(raw.openedDate || ""),
+    afterOpeningDays: raw.afterOpeningDays === "" || raw.afterOpeningDays == null ? null : Number(raw.afterOpeningDays),
     quantity: raw.quantity === "" || raw.quantity == null ? null : Number(raw.quantity),
     unit: String(raw.unit || "").trim(),
     location: String(raw.location || "Fridge"),
@@ -100,6 +101,7 @@ export function normalizeFoodTemplate(raw = {}) {
     location: String(raw.location || "Fridge"),
     brand: String(raw.brand || "").trim(),
     barcode: String(raw.barcode || "").trim(),
+    afterOpeningDays: raw.afterOpeningDays === "" || raw.afterOpeningDays == null ? null : Number(raw.afterOpeningDays),
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
   };
@@ -211,8 +213,16 @@ export function validateItem(item) {
   if (!item.name) return "Enter a food name.";
   if (!parseLocalDate(item.expiryDate)) return "Choose a valid expiry date.";
   if (item.openedDate && !parseLocalDate(item.openedDate)) return "Choose a valid opened date.";
+  if (item.afterOpeningDays != null && (!Number.isInteger(item.afterOpeningDays) || item.afterOpeningDays < 1)) return "After-opening lifetime must be at least one day.";
   if (item.quantity != null && (!Number.isFinite(item.quantity) || item.quantity < 0)) return "Quantity must be zero or more.";
   return "";
+}
+
+export function effectiveExpiryDate(item) {
+  if (!item?.openedDate || !item?.afterOpeningDays || !parseLocalDate(item.openedDate)) return item?.expiryDate || "";
+  const openedUseBy = addDaysISO(item.afterOpeningDays, parseLocalDate(item.openedDate));
+  if (!parseLocalDate(item.expiryDate)) return openedUseBy;
+  return openedUseBy < item.expiryDate ? openedUseBy : item.expiryDate;
 }
 
 export function addDaysISO(days, date = new Date()) {
@@ -221,7 +231,7 @@ export function addDaysISO(days, date = new Date()) {
 
 export function groupActiveItems(items, now = new Date()) {
   const groups = { expired: [], soon: [], later: [] };
-  items.filter((item) => item.status === "active").forEach((item) => groups[expiryState(item.expiryDate, now)].push(item));
+  items.filter((item) => item.status === "active").forEach((item) => groups[expiryState(effectiveExpiryDate(item), now)].push(item));
   return groups;
 }
 

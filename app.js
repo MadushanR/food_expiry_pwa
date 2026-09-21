@@ -1,5 +1,5 @@
 import {
-  addDaysISO, createOutcomeRecords, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
+  addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, todayISO,
   validateGroceryItem, validateItem
@@ -16,7 +16,7 @@ const elements = {
   expiredCount: $("#expiredCount"), todayCount: $("#todayCount"), soonCount: $("#soonCount"),
   usedCount: $("#usedCount"), wastedCount: $("#wastedCount"), frozenCount: $("#frozenCount"),
   itemDialog: $("#itemDialog"), itemForm: $("#itemForm"), itemId: $("#itemId"), itemName: $("#itemName"),
-  expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
+  expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), afterOpeningDays: $("#afterOpeningDays"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
   formError: $("#formError"), formTitle: $("#formTitle"), formEyebrow: $("#formEyebrow"),
@@ -93,7 +93,7 @@ function inventoryItems() {
   return items.filter((item) => {
     if (item.status !== "active") return false;
     if (query && ![item.name, item.location, item.notes].some((value) => value.toLowerCase().includes(query))) return false;
-    const days = daysUntil(item.expiryDate);
+    const days = daysUntil(effectiveExpiryDate(item));
     if (filter === "active") return true;
     if (filter === "expired") return days < 0;
     if (filter === "today") return days === 0;
@@ -103,16 +103,21 @@ function inventoryItems() {
   }).sort((a, b) => {
     if (elements.sort.value === "name") return a.name.localeCompare(b.name);
     if (elements.sort.value === "recent") return b.createdAt.localeCompare(a.createdAt);
-    return a.expiryDate.localeCompare(b.expiryDate) || a.name.localeCompare(b.name);
+    return effectiveExpiryDate(a).localeCompare(effectiveExpiryDate(b)) || a.name.localeCompare(b.name);
   });
 }
 
 function activeItemMarkup(item) {
-  const state = expiryState(item.expiryDate);
+  const useBy = effectiveExpiryDate(item);
+  const adjustedAfterOpening = useBy !== item.expiryDate;
+  const relative = relativeExpiry(useBy);
+  const relativeLabel = adjustedAfterOpening ? relative.replace(/^Expires/, "Use").replace(/^Expired/, "Use-by passed") : relative;
+  const printedExpiry = adjustedAfterOpening ? `<span>Label expiry ${escapeHTML(formatDate(item.expiryDate, { month: "short", day: "numeric" }))}</span>` : "";
+  const state = expiryState(useBy);
   const quantity = item.quantity == null ? "" : `${item.quantity}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}`;
   return `<article class="food-item ${state}" data-id="${escapeHTML(item.id)}">
     <div><p class="food-name">${escapeHTML(item.name)}</p>
-      <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeExpiry(item.expiryDate))}</span><span>${escapeHTML(formatDate(item.expiryDate))}</span>${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}</div>
+      <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeLabel)}</span><span>${adjustedAfterOpening ? "Use by " : ""}${escapeHTML(formatDate(useBy))}</span>${printedExpiry}${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}</div>
       ${item.notes ? `<p class="food-notes">${escapeHTML(item.notes)}</p>` : ""}
     </div>
     <div class="item-menu"><button class="item-action primary-action" type="button" data-action="act" aria-label="Record an outcome for ${escapeHTML(item.name)}">Act</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action" type="button" data-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
@@ -142,15 +147,15 @@ function emptyMarkup(title, message, showAdd = false) {
 }
 
 function renderToday(active) {
-  const urgent = active.filter((item) => daysUntil(item.expiryDate) <= 3).sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
+  const urgent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) <= 3).sort((a, b) => effectiveExpiryDate(a).localeCompare(effectiveExpiryDate(b)));
   if (!urgent.length) {
     elements.todayGroups.innerHTML = emptyMarkup("Nothing urgent", active.length ? "Everything is more than three days away." : "Add your first food item to start tracking.", !active.length);
     return;
   }
   const groups = {
-    expired: urgent.filter((item) => daysUntil(item.expiryDate) < 0),
-    today: urgent.filter((item) => daysUntil(item.expiryDate) === 0),
-    soon: urgent.filter((item) => daysUntil(item.expiryDate) >= 1),
+    expired: urgent.filter((item) => daysUntil(effectiveExpiryDate(item)) < 0),
+    today: urgent.filter((item) => daysUntil(effectiveExpiryDate(item)) === 0),
+    soon: urgent.filter((item) => daysUntil(effectiveExpiryDate(item)) >= 1),
   };
   const labels = { expired: "Expired", today: "Today", soon: "Next 3 days" };
   elements.todayGroups.innerHTML = Object.keys(groups).filter((key) => groups[key].length).map((key) =>
@@ -257,9 +262,9 @@ async function closeShoppingMode() {
 
 function render() {
   const active = items.filter((item) => item.status === "active");
-  elements.expiredCount.textContent = active.filter((item) => daysUntil(item.expiryDate) < 0).length;
-  elements.todayCount.textContent = active.filter((item) => daysUntil(item.expiryDate) === 0).length;
-  elements.soonCount.textContent = active.filter((item) => daysUntil(item.expiryDate) >= 1 && daysUntil(item.expiryDate) <= 3).length;
+  elements.expiredCount.textContent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) < 0).length;
+  elements.todayCount.textContent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) === 0).length;
+  elements.soonCount.textContent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) >= 1 && daysUntil(effectiveExpiryDate(item)) <= 3).length;
   renderToday(active); renderInventory(); renderGroceries(); renderHistory();
 }
 
@@ -279,6 +284,7 @@ function fillFromTemplate(template) {
   elements.favoriteTemplateId.value = template.id; elements.saveFavorite.checked = true;
   elements.itemName.value = template.name; elements.location.value = template.location;
   elements.quantity.value = template.quantity ?? ""; elements.unit.value = template.unit;
+  elements.afterOpeningDays.value = template.afterOpeningDays ?? "";
   elements.brand.value = template.brand; elements.barcode.value = template.barcode;
 }
 
@@ -287,6 +293,7 @@ function openItemDialog(item = null) {
   elements.itemForm.reset(); elements.formError.textContent = "";
   elements.itemId.value = item?.id || ""; elements.itemName.value = item?.name || ""; elements.expiryDate.value = item?.expiryDate || todayISO();
   elements.openedDate.value = item?.openedDate || "";
+  elements.afterOpeningDays.value = item?.afterOpeningDays ?? "";
   elements.quantity.value = item?.quantity ?? ""; elements.unit.value = item?.unit || ""; elements.location.value = item?.location || "Fridge"; elements.notes.value = item?.notes || "";
   elements.barcode.value = item?.barcode || ""; elements.brand.value = item?.brand || ""; elements.manualBarcode.value = "";
   const favourite = item ? findMatchingFoodTemplate(item, foodTemplates) : null;
@@ -494,6 +501,7 @@ async function saveForm(event) {
   const item = normalizeItem({
     ...existing, id: existing?.id || makeId(), name: elements.itemName.value, expiryDate: elements.expiryDate.value,
     openedDate: elements.openedDate.value,
+    afterOpeningDays: elements.afterOpeningDays.value,
     quantity: elements.quantity.value, unit: elements.unit.value, location: elements.location.value, notes: elements.notes.value,
     barcode: elements.barcode.value, brand: elements.brand.value,
     favoriteTemplateId: elements.saveFavorite.checked ? (elements.favoriteTemplateId.value || existing?.favoriteTemplateId || makeId()) : null,
@@ -600,6 +608,7 @@ function bindEvents() {
     const button = event.target.closest("[data-recent-id]"); if (!button) return;
     const template = items.find((item) => item.id === button.dataset.recentId); if (!template) return;
     elements.itemName.value = template.name; elements.location.value = template.location; elements.quantity.value = template.quantity ?? ""; elements.unit.value = template.unit;
+    elements.afterOpeningDays.value = template.afterOpeningDays ?? "";
     elements.brand.value = template.brand || ""; elements.barcode.value = template.barcode || "";
   });
   elements.favoriteFoodButtons.addEventListener("click", async (event) => {

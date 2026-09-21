@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  addDaysISO, createOutcomeRecords, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
+  addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   hasActiveGroceryMatch, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
   relativeExpiry, shoppingProgress, validateGroceryItem, validateItem
@@ -23,6 +23,7 @@ test("invalid calendar dates are rejected", () => {
   assert.equal(parseLocalDate("2026-02-30"), null);
   assert.equal(validateItem(normalizeItem({ name: "Milk", expiry: "2026-02-30" })), "Choose a valid expiry date.");
   assert.equal(validateItem(normalizeItem({ name: "Milk", expiry: "2026-09-25", openedDate: "2026-02-30" })), "Choose a valid opened date.");
+  assert.equal(validateItem(normalizeItem({ name: "Milk", expiry: "2026-09-25", afterOpeningDays: 0 })), "After-opening lifetime must be at least one day.");
 });
 
 test("legacy items are normalized into the new schema", () => {
@@ -116,6 +117,14 @@ test("grocery items normalize and validate independently from food inventory", (
   assert.equal(item.quantity, "2");
   assert.equal(validateGroceryItem(item), "");
   assert.equal(validateGroceryItem(normalizeGroceryItem({ name: "", store: "Walmart" })), "Enter an item name.");
+});
+
+test("after-opening lifetime uses the earlier of its use-by date and label expiry", () => {
+  const opened = normalizeItem({ name: "Milk", expiry: "2026-10-20", openedDate: "2026-09-20", afterOpeningDays: 7 });
+  const labelSooner = normalizeItem({ name: "Milk", expiry: "2026-09-24", openedDate: "2026-09-20", afterOpeningDays: 7 });
+  assert.equal(effectiveExpiryDate(opened), "2026-09-27");
+  assert.equal(effectiveExpiryDate(labelSooner), "2026-09-24");
+  assert.equal(effectiveExpiryDate(normalizeItem({ name: "Eggs", expiry: "2026-10-01" })), "2026-10-01");
 });
 
 test("favourite food templates persist reusable product details and match items", () => {
