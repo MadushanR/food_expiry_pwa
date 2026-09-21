@@ -94,6 +94,10 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .form-suggestion { justify-self: start; }
 .nutrition-preview { display: grid; gap: 8px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .nutrition-preview[hidden] { display: none; }
+.unknown-product { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px; border: 1px solid var(--brown); border-radius: 14px; background: var(--brown-soft); }
+.unknown-product[hidden] { display: none; }
+.unknown-product p { margin-top: 3px; color: var(--muted); font-size: .78rem; line-height: 1.35; }
+.unknown-product span { font-weight: 750; }
 .nutrition-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .nutrition-value { padding: 8px; border-radius: 10px; background: var(--surface-muted); text-align: center; }
 .nutrition-value strong, .nutrition-value span { display: block; }

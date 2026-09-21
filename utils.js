@@ -82,6 +82,11 @@ export function registerRapidBarcode(raw, seen = new Set()) {
   return { barcode, duplicate };
 }
 
+export function unknownProductDraft(raw) {
+  const parsed = parseGS1Barcode(raw);
+  return { barcode: parsed.barcode, expiryDate: parsed.expiryDate || "" };
+}
+
 export function normalizeNutrition(raw = {}) {
   const numberOrNull = (value) => value === "" || value == null || !Number.isFinite(Number(value)) ? null : Number(value);
   return {

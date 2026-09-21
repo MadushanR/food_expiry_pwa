@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — B10: Unknown-product form**
-- Completed: 18 / 20
+- **In progress — U4: Swipe actions**
+- Completed: 19 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -67,9 +67,9 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **B8 — Rapid scanning mode** *(Complete — 2026-09-20)*
   - Scan multiple products in one session without reopening the Add Food dialog.
   - Prevent accidental duplicate scan events.
-- [ ] **B10 — Unknown-product form** *(In progress)*
+- [x] **B10 — Unknown-product form** *(Complete — 2026-09-20)*
   - Turn a failed barcode lookup into a fast manual product entry while retaining the barcode.
-- [ ] **U4 — Swipe actions** *(Pending)*
+- [ ] **U4 — Swipe actions** *(In progress)*
   - Add accessible swipe shortcuts for common inventory actions on touch devices.
   - Retain visible buttons and keyboard access as non-gesture alternatives.
 

@@ -4,7 +4,7 @@ import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, hasNutrition, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode,
-  relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, useFirstPriority, useItUpSuggestions, validateGroceryItem, validateItem
+  relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, unknownProductDraft, useFirstPriority, useItUpSuggestions, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -16,6 +16,11 @@ test("rapid scanning registers each barcode once per session", () => {
   assert.deepEqual(registerRapidBarcode("12345", seen), { barcode: "12345", duplicate: true });
   assert.equal(seen.size, 1);
   assert.deepEqual(registerRapidBarcode("not-a-barcode", seen), { barcode: "", duplicate: false });
+});
+
+test("unknown product drafts retain barcode and any GS1 expiry", () => {
+  assert.deepEqual(unknownProductDraft("010950600013435217261231"), { barcode: "09506000134352", expiryDate: "2026-12-31" });
+  assert.deepEqual(unknownProductDraft("628123456789"), { barcode: "628123456789", expiryDate: "" });
 });
 
 test("date math uses calendar dates without UTC shifts", () => {

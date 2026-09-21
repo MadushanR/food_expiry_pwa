@@ -1,7 +1,7 @@
 import {
   activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, hasNutrition, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, useFirstPriority, useItUpSuggestions,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, unknownProductDraft, useFirstPriority, useItUpSuggestions,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -21,6 +21,7 @@ const elements = {
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
   rapidScanMode: $("#rapidScanMode"), rapidScanCount: $("#rapidScanCount"),
+  unknownProductNotice: $("#unknownProductNotice"), unknownProductBarcode: $("#unknownProductBarcode"),
   nutritionPreview: $("#nutritionPreview"), nutritionPreviewGrid: $("#nutritionPreviewGrid"),
   formError: $("#formError"), formTitle: $("#formTitle"), formEyebrow: $("#formEyebrow"),
   favoriteTemplateId: $("#favoriteTemplateId"), saveFavorite: $("#saveFavorite"),
@@ -386,6 +387,7 @@ function fillFromTemplate(template) {
 function openItemDialog(item = null) {
   stopScanner();
   elements.itemForm.reset(); elements.formError.textContent = "";
+  elements.unknownProductNotice.hidden = true;
   elements.itemId.value = item?.id || ""; elements.itemName.value = item?.name || ""; elements.expiryDate.value = item?.expiryDate || todayISO();
   elements.openedDate.value = item?.openedDate || "";
   elements.freezeByDate.value = item?.freezeByDate || "";
@@ -453,6 +455,7 @@ function scannerMessage(message) {
 }
 
 function fillProductFields(product, parsed, source) {
+  elements.unknownProductNotice.hidden = true;
   const productName = product?.product_name || product?.generic_name || product?.name || "";
   const brand = product?.brands || product?.brand || "";
   const packageSize = product?.unit
@@ -519,12 +522,18 @@ async function lookUpBarcode(raw) {
     fillProductFields(product, parsed, "Product details filled from Open Food Facts.");
   } catch (error) {
     if (error.name === "AbortError" && elements.scannerPanel.hidden) return;
-    elements.barcode.value = parsed.barcode;
-    elements.expiryDate.value = parsed.expiryDate || "";
+    const draft = unknownProductDraft(raw);
+    elements.barcode.value = draft.barcode;
+    elements.expiryDate.value = draft.expiryDate;
     const reason = error.message === "not-found"
-      ? "This product is not in Open Food Facts yet. Enter its name and expiry manually."
-      : "Product lookup is unavailable. The barcode was saved; enter the remaining details manually.";
+      ? "This product is not in Open Food Facts yet."
+      : "Product lookup is unavailable right now.";
     scannerMessage(reason);
+    stopScannerCameraOnly();
+    elements.scannerPanel.hidden = true;
+    elements.unknownProductBarcode.textContent = draft.barcode;
+    elements.unknownProductNotice.hidden = false;
+    elements.itemName.focus();
   } finally {
     barcodeLookupPending = false;
     if (barcodeLookupController === controller) barcodeLookupController = null;
@@ -781,6 +790,7 @@ function bindEvents() {
     if (!elements.rapidScanMode.checked) rapidScannedBarcodes.clear();
     updateRapidScanCount();
   });
+  $("#unknownProductContinue").addEventListener("click", () => elements.itemName.focus());
   elements.itemForm.addEventListener("submit", saveForm);
   [elements.todayGroups, elements.inventoryGroups, elements.historyList].forEach((container) => container.addEventListener("click", handleItemAction));
   [elements.search, elements.filter, elements.sort].forEach((element) => element.addEventListener("input", renderInventory));

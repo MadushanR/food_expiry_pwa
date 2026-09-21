@@ -104,6 +104,10 @@
         <p class="helper-text">Product information is provided by <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a>.</p>
         <div class="manual-barcode"><label class="field"><span>Or enter the number</span><input id="manualBarcode" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 628123456789"></label><button class="secondary-button" id="lookupBarcodeButton" type="button">Look up</button></div>
       </section>
+      <section class="unknown-product" id="unknownProductNotice" hidden role="status">
+        <div><strong>Product not found</strong><p>The barcode <span id="unknownProductBarcode"></span> is saved. Add the name and expiry below.</p></div>
+        <button class="secondary-button" id="unknownProductContinue" type="button">Enter details</button>
+      </section>
       <div id="favoriteFoods" class="recent-foods" hidden><span class="field-label">Favourite templates</span><div id="favoriteFoodButtons" class="favorite-template-list"></div></div>
       <div id="recentFoods" class="recent-foods" hidden><span class="field-label">Recently added</span><div id="recentFoodButtons" class="date-shortcuts"></div></div>
       <label class="field full-width"><span>Food name</span><input id="itemName" type="text" required maxlength="80" autocomplete="off" placeholder="e.g. Greek yogurt"></label>
