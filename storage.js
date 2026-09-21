@@ -1,11 +1,12 @@
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
-import { normalizeGroceryItem, normalizeItem } from "./utils.js";
+import { normalizeFoodTemplate, normalizeGroceryItem, normalizeItem } from "./utils.js";
 
 const DB_NAME = "freshcheck";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const ITEM_STORE = "items";
 const META_STORE = "meta";
 const GROCERY_STORE = "groceryItems";
+const TEMPLATE_STORE = "foodTemplates";
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {
@@ -30,6 +31,7 @@ export function openDatabase() {
       if (!db.objectStoreNames.contains(ITEM_STORE)) db.createObjectStore(ITEM_STORE, { keyPath: "id" });
       if (!db.objectStoreNames.contains(META_STORE)) db.createObjectStore(META_STORE, { keyPath: "key" });
       if (!db.objectStoreNames.contains(GROCERY_STORE)) db.createObjectStore(GROCERY_STORE, { keyPath: "id" });
+      if (!db.objectStoreNames.contains(TEMPLATE_STORE)) db.createObjectStore(TEMPLATE_STORE, { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -126,6 +128,33 @@ export async function replaceGroceryItems(db, items) {
   const store = transaction.objectStore(GROCERY_STORE);
   store.clear();
   normalized.forEach((item) => store.put(item));
+  await transactionDone(transaction);
+  return normalized.length;
+}
+
+export async function getFoodTemplates(db) {
+  const templates = await requestResult(db.transaction(TEMPLATE_STORE, "readonly").objectStore(TEMPLATE_STORE).getAll());
+  return templates.map(normalizeFoodTemplate);
+}
+
+export async function saveFoodTemplate(db, template) {
+  const transaction = db.transaction(TEMPLATE_STORE, "readwrite");
+  transaction.objectStore(TEMPLATE_STORE).put(normalizeFoodTemplate(template));
+  await transactionDone(transaction);
+}
+
+export async function removeFoodTemplate(db, id) {
+  const transaction = db.transaction(TEMPLATE_STORE, "readwrite");
+  transaction.objectStore(TEMPLATE_STORE).delete(id);
+  await transactionDone(transaction);
+}
+
+export async function replaceFoodTemplates(db, templates) {
+  const normalized = templates.map(normalizeFoodTemplate);
+  const transaction = db.transaction(TEMPLATE_STORE, "readwrite");
+  const store = transaction.objectStore(TEMPLATE_STORE);
+  store.clear();
+  normalized.forEach((template) => store.put(template));
   await transactionDone(transaction);
   return normalized.length;
 }

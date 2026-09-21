@@ -1,12 +1,12 @@
 import {
-  addDaysISO, daysUntil, expiryState, findMatchingGroceryItem, groupActiveItems,
-  hasActiveGroceryMatch, makeId, normalizeGroceryItem, normalizeItem, outcomeCounts,
+  addDaysISO, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
+  groupActiveItems, hasActiveGroceryMatch, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, todayISO,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
-  getGroceryItems, getItems, migrateLegacyItems, openDatabase, removeGroceryItem,
-  removeItem, replaceGroceryItems, replaceItems, saveGroceryItem, saveItem, seedGroceryItems
+  getFoodTemplates, getGroceryItems, getItems, migrateLegacyItems, openDatabase, removeFoodTemplate, removeGroceryItem,
+  removeItem, replaceFoodTemplates, replaceGroceryItems, replaceItems, saveFoodTemplate, saveGroceryItem, saveItem, seedGroceryItems
 } from "./storage.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -20,6 +20,8 @@ const elements = {
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
   formError: $("#formError"), formTitle: $("#formTitle"), formEyebrow: $("#formEyebrow"),
+  favoriteTemplateId: $("#favoriteTemplateId"), saveFavorite: $("#saveFavorite"),
+  favoriteFoods: $("#favoriteFoods"), favoriteFoodButtons: $("#favoriteFoodButtons"),
   recentFoods: $("#recentFoods"), recentFoodButtons: $("#recentFoodButtons"),
   outcomeDialog: $("#outcomeDialog"), outcomeTitle: $("#outcomeTitle"),
   groceryList: $("#groceryList"), grocerySearch: $("#grocerySearch"), groceryStoreFilter: $("#groceryStoreFilter"),
@@ -36,6 +38,7 @@ const elements = {
 let db;
 let items = [];
 let groceryItems = [];
+let foodTemplates = [];
 let undoItem = null;
 let actionItemId = null;
 let toastTimer = null;
@@ -107,7 +110,7 @@ function activeItemMarkup(item) {
       <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeExpiry(item.expiryDate))}</span><span>${escapeHTML(formatDate(item.expiryDate))}</span><span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}</div>
       ${item.notes ? `<p class="food-notes">${escapeHTML(item.notes)}</p>` : ""}
     </div>
-    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="act" aria-label="Record an outcome for ${escapeHTML(item.name)}">Act</button><button class="item-action" type="button" data-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
+    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="act" aria-label="Record an outcome for ${escapeHTML(item.name)}">Act</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action" type="button" data-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
   </article>`;
 }
 
@@ -115,7 +118,7 @@ function historyItemMarkup(item) {
   const label = item.status[0].toUpperCase() + item.status.slice(1);
   return `<article class="food-item ${item.status}" data-id="${escapeHTML(item.id)}">
     <div><p class="food-name">${escapeHTML(item.name)}</p><div class="food-meta"><span class="outcome-label">${label}</span><span>${escapeHTML(formatCompleted(item.completedAt))}</span><span>${escapeHTML(item.location)}</span></div></div>
-    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="restore" aria-label="Restore ${escapeHTML(item.name)} to inventory">Restore</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)} permanently">Delete</button></div>
+    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="restore" aria-label="Restore ${escapeHTML(item.name)} to inventory">Restore</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)} permanently">Delete</button></div>
   </article>`;
 }
 
@@ -216,14 +219,29 @@ function renderRecentFoods() {
   elements.recentFoodButtons.innerHTML = recent.map((item) => `<button type="button" class="chip" data-recent-id="${escapeHTML(item.id)}">${escapeHTML(item.name)}</button>`).join("");
 }
 
+function renderFavouriteFoods() {
+  const favourites = [...foodTemplates].sort((a, b) => a.name.localeCompare(b.name));
+  elements.favoriteFoods.hidden = !favourites.length;
+  elements.favoriteFoodButtons.innerHTML = favourites.map((template) => `<span class="favorite-template"><button type="button" class="chip" data-template-id="${escapeHTML(template.id)}">★ ${escapeHTML(template.name)}</button><button type="button" class="remove-template" data-remove-template-id="${escapeHTML(template.id)}" aria-label="Remove ${escapeHTML(template.name)} from favourites">×</button></span>`).join("");
+}
+
+function fillFromTemplate(template) {
+  elements.favoriteTemplateId.value = template.id; elements.saveFavorite.checked = true;
+  elements.itemName.value = template.name; elements.location.value = template.location;
+  elements.quantity.value = template.quantity ?? ""; elements.unit.value = template.unit;
+  elements.brand.value = template.brand; elements.barcode.value = template.barcode;
+}
+
 function openItemDialog(item = null) {
   stopScanner();
   elements.itemForm.reset(); elements.formError.textContent = "";
   elements.itemId.value = item?.id || ""; elements.itemName.value = item?.name || ""; elements.expiryDate.value = item?.expiryDate || todayISO();
   elements.quantity.value = item?.quantity ?? ""; elements.unit.value = item?.unit || ""; elements.location.value = item?.location || "Fridge"; elements.notes.value = item?.notes || "";
   elements.barcode.value = item?.barcode || ""; elements.brand.value = item?.brand || ""; elements.manualBarcode.value = "";
+  const favourite = item ? findMatchingFoodTemplate(item, foodTemplates) : null;
+  elements.favoriteTemplateId.value = favourite?.id || item?.favoriteTemplateId || ""; elements.saveFavorite.checked = Boolean(favourite);
   elements.formTitle.textContent = item ? "Edit food" : "Add food"; elements.formEyebrow.textContent = item ? "Update item" : "New item";
-  if (item) elements.recentFoods.hidden = true; else renderRecentFoods();
+  renderFavouriteFoods(); if (item) elements.recentFoods.hidden = true; else renderRecentFoods();
   elements.itemDialog.showModal(); requestAnimationFrame(() => elements.itemName.focus());
 }
 
@@ -236,7 +254,7 @@ function openGroceryDialog(item = null) {
 }
 
 async function refresh() {
-  [items, groceryItems] = await Promise.all([getItems(db), getGroceryItems(db)]);
+  [items, groceryItems, foodTemplates] = await Promise.all([getItems(db), getGroceryItems(db), getFoodTemplates(db)]);
   render();
 }
 
@@ -367,6 +385,18 @@ async function handleItemAction(event) {
   const item = items.find((entry) => entry.id === button.closest("[data-id]")?.dataset.id); if (!item) return;
   if (button.dataset.action === "edit") { openItemDialog(item); return; }
   if (button.dataset.action === "act") { openOutcome(item); return; }
+  if (button.dataset.action === "favorite") {
+    const existingTemplate = findMatchingFoodTemplate(item, foodTemplates);
+    if (existingTemplate) {
+      await removeFoodTemplate(db, existingTemplate.id);
+      await saveItem(db, { ...item, favoriteTemplateId: null, updatedAt: new Date().toISOString() });
+      await refresh(); showToast(`${item.name} removed from favourites`); return;
+    }
+    const template = normalizeFoodTemplate({ ...item, id: item.favoriteTemplateId || makeId() });
+    await saveFoodTemplate(db, template);
+    await saveItem(db, { ...item, favoriteTemplateId: template.id, updatedAt: new Date().toISOString() });
+    await refresh(); showToast(`${item.name} saved as a favourite`); return;
+  }
   if (button.dataset.action === "delete") { await removeItem(db, item.id); await refresh(); showToast(`${item.name} deleted`, item); return; }
   if (button.dataset.action === "restore") {
     const previous = { ...item };
@@ -391,6 +421,7 @@ async function saveForm(event) {
     ...existing, id: existing?.id || makeId(), name: elements.itemName.value, expiryDate: elements.expiryDate.value,
     quantity: elements.quantity.value, unit: elements.unit.value, location: elements.location.value, notes: elements.notes.value,
     barcode: elements.barcode.value, brand: elements.brand.value,
+    favoriteTemplateId: elements.saveFavorite.checked ? (elements.favoriteTemplateId.value || existing?.favoriteTemplateId || makeId()) : null,
     status: existing?.status || "active", createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
   });
   const error = validateItem(item); if (error) { elements.formError.textContent = error; return; }
@@ -398,6 +429,10 @@ async function saveForm(event) {
   if (duplicate && !confirm(`Another ${item.name} with this expiry date already exists. Save it anyway?`)) return;
   const grocery = findMatchingGroceryItem(item, groceryItems);
   if (grocery) item.groceryItemId = grocery.id;
+  const previousTemplate = existing ? findMatchingFoodTemplate(existing, foodTemplates) : null;
+  if (elements.saveFavorite.checked) {
+    await saveFoodTemplate(db, normalizeFoodTemplate({ ...item, id: item.favoriteTemplateId, createdAt: previousTemplate?.createdAt }));
+  } else if (previousTemplate) await removeFoodTemplate(db, previousTemplate.id);
   await saveItem(db, item); await syncGroceryForItem(item, items.map((entry) => entry.id === item.id ? item : entry).concat(existing ? [] : [item]));
   stopScanner(); elements.itemDialog.close(); await refresh();
   showToast(grocery ? `${item.name} saved · grocery list updated` : (existing ? `${item.name} updated` : `${item.name} added`));
@@ -435,11 +470,11 @@ async function handleGroceryToggle(event) {
 }
 
 function downloadBackup() {
-  const payload = { app: "FreshCheck", version: 4, exportedAt: new Date().toISOString(), items, groceryItems };
+  const payload = { app: "FreshCheck", version: 5, exportedAt: new Date().toISOString(), items, groceryItems, foodTemplates };
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
   const link = document.createElement("a"); link.href = url; link.download = `freshcheck-backup-${todayISO()}.json`;
   document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  elements.dataStatus.textContent = `${items.length} food records and ${groceryItems.length} grocery items exported.`;
+  elements.dataStatus.textContent = `${items.length} food records, ${groceryItems.length} grocery items, and ${foodTemplates.length} favourites exported.`;
 }
 
 async function importBackup(file) {
@@ -449,11 +484,13 @@ async function importBackup(file) {
     const normalized = payload.items.map(normalizeItem);
     if (normalized.some((item) => validateItem(item))) throw new Error("The backup contains an invalid food item.");
     const restoredGroceries = Array.isArray(payload.groceryItems) ? payload.groceryItems.map(normalizeGroceryItem) : null;
+    const restoredTemplates = Array.isArray(payload.foodTemplates) ? payload.foodTemplates.map(normalizeFoodTemplate) : null;
     if (restoredGroceries?.some((item) => validateGroceryItem(item))) throw new Error("The backup contains an invalid grocery item.");
     const groceryMessage = restoredGroceries ? ` and ${restoredGroceries.length} grocery items` : "";
     if (!confirm(`Replace this device's inventory with ${normalized.length} food records${groceryMessage}?`)) return;
     await replaceItems(db, normalized);
     if (restoredGroceries) await replaceGroceryItems(db, restoredGroceries);
+    if (restoredTemplates) await replaceFoodTemplates(db, restoredTemplates);
     await refresh(); elements.dataStatus.textContent = "Backup restored successfully.";
   } catch (error) { elements.dataStatus.textContent = error.message || "The backup could not be restored."; }
 }
@@ -482,6 +519,15 @@ function bindEvents() {
     const template = items.find((item) => item.id === button.dataset.recentId); if (!template) return;
     elements.itemName.value = template.name; elements.location.value = template.location; elements.quantity.value = template.quantity ?? ""; elements.unit.value = template.unit;
     elements.brand.value = template.brand || ""; elements.barcode.value = template.barcode || "";
+  });
+  elements.favoriteFoodButtons.addEventListener("click", async (event) => {
+    const removeButton = event.target.closest("[data-remove-template-id]");
+    if (removeButton) {
+      const template = foodTemplates.find((entry) => entry.id === removeButton.dataset.removeTemplateId); if (!template) return;
+      await removeFoodTemplate(db, template.id); foodTemplates = await getFoodTemplates(db); renderFavouriteFoods(); showToast(`${template.name} removed from favourites`); return;
+    }
+    const button = event.target.closest("[data-template-id]"); if (!button) return;
+    const template = foodTemplates.find((entry) => entry.id === button.dataset.templateId); if (template) fillFromTemplate(template);
   });
   $("#closeOutcomeButton").addEventListener("click", () => elements.outcomeDialog.close());
   document.querySelectorAll("[data-outcome]").forEach((button) => button.addEventListener("click", () => recordOutcome(button.dataset.outcome)));

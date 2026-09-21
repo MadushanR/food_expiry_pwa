@@ -126,6 +126,10 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .field small { font-weight: 500; }
 .field-label { color: var(--muted); font-size: .8rem; font-weight: 700; }
 .date-shortcuts { display: flex; flex-wrap: wrap; gap: 7px; }
+.favorite-template-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.favorite-template { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.favorite-template .chip { border: 0; border-radius: 0; }
+.remove-template { min-width: 38px; border: 0; border-left: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 1.15rem; }
 .chip { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: .78rem; }
 .helper-text { color: var(--muted); font-size: .8rem; }
 .scan-row { padding: 13px 14px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-muted); }

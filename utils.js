@@ -56,11 +56,41 @@ export function normalizeItem(raw = {}) {
     barcode: String(raw.barcode || "").trim(),
     brand: String(raw.brand || "").trim(),
     groceryItemId: raw.groceryItemId ? String(raw.groceryItemId) : null,
+    favoriteTemplateId: raw.favoriteTemplateId ? String(raw.favoriteTemplateId) : null,
     status: ["active", "used", "wasted", "frozen"].includes(raw.status) ? raw.status : "active",
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
     completedAt: raw.completedAt || null,
   };
+}
+
+export function normalizeFoodTemplate(raw = {}) {
+  const now = new Date().toISOString();
+  return {
+    id: String(raw.id || makeId()),
+    name: String(raw.name || "").trim(),
+    quantity: raw.quantity === "" || raw.quantity == null ? null : Number(raw.quantity),
+    unit: String(raw.unit || "").trim(),
+    location: String(raw.location || "Fridge"),
+    brand: String(raw.brand || "").trim(),
+    barcode: String(raw.barcode || "").trim(),
+    createdAt: raw.createdAt || now,
+    updatedAt: raw.updatedAt || now,
+  };
+}
+
+export function findMatchingFoodTemplate(food, templates = []) {
+  if (food?.favoriteTemplateId) {
+    const linked = templates.find((template) => template.id === food.favoriteTemplateId);
+    if (linked) return linked;
+  }
+  const barcode = String(food?.barcode || "").replace(/^0+/, "");
+  if (barcode) {
+    const barcodeMatch = templates.find((template) => String(template.barcode || "").replace(/^0+/, "") === barcode);
+    if (barcodeMatch) return barcodeMatch;
+  }
+  const name = normalizeProductName(food?.name);
+  return name ? templates.find((template) => normalizeProductName(template.name) === name) || null : null;
 }
 
 export function normalizeProductName(value = "") {

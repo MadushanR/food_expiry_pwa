@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  addDaysISO, daysUntil, expiryState, findMatchingGroceryItem, groupActiveItems,
-  hasActiveGroceryMatch, normalizeGroceryItem, normalizeItem, outcomeCounts,
+  addDaysISO, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
+  hasActiveGroceryMatch, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
   relativeExpiry, validateGroceryItem, validateItem
 } from "./utils.js";
@@ -114,4 +114,16 @@ test("grocery items normalize and validate independently from food inventory", (
   assert.equal(item.quantity, "2");
   assert.equal(validateGroceryItem(item), "");
   assert.equal(validateGroceryItem(normalizeGroceryItem({ name: "", store: "Walmart" })), "Enter an item name.");
+});
+
+test("favourite food templates persist reusable product details and match items", () => {
+  const template = normalizeFoodTemplate({
+    id: "template-milk", name: " Milk ", quantity: "2", unit: "cartons", location: "Fridge",
+    brand: "Farm", barcode: "00628123456789",
+  });
+  assert.equal(template.name, "Milk");
+  assert.equal(template.quantity, 2);
+  assert.equal(findMatchingFoodTemplate({ favoriteTemplateId: "template-milk" }, [template]), template);
+  assert.equal(findMatchingFoodTemplate({ name: "Milk", barcode: "628123456789" }, [template]), template);
+  assert.equal(findMatchingFoodTemplate({ name: "Eggs" }, [template]), null);
 });
