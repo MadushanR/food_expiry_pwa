@@ -335,6 +335,19 @@ export function suggestThawUseByDate(item, thawedDate = todayISO()) {
   return addDaysISO(days, thawed);
 }
 
+export function storageGuidance(item) {
+  const name = normalizeProductName(item?.name);
+  if (item?.location === "Freezer") return "Keep the freezer at −18°C (0°F) or lower. Thaw meat, poultry, fish, and seafood in the fridge, microwave, or cold water—not on the counter.";
+  if (/chicken|turkey|beef|pork|meat|salmon|fish|seafood/.test(name)) return "Keep refrigerated at 4°C (40°F) or lower in a sealed container on the bottom shelf so raw juices cannot drip onto other food.";
+  if (/leftover|cooked|stew|egg dish|soup/.test(name)) return "Refrigerate promptly. Most cooked leftovers keep 3–4 days at 4°C or lower; soups are generally 2–3 days.";
+  if (/milk|yogurt|cottage cheese/.test(name)) return "Keep refrigerated at 4°C or lower. Government guidance lists opened milk, yogurt, and cottage cheese for about 4 days; follow the package when stricter.";
+  if (/egg/.test(name)) return "Keep shell eggs refrigerated. Do not freeze eggs in their shells; out-of-shell eggs can be frozen in a suitable container.";
+  if (/tomato/.test(name)) return "Whole tomatoes are generally stored outside the refrigerator. Refrigerate them after cutting.";
+  if (/lettuce|salad|spinach|berr|cut fruit|mixed vegetable/.test(name)) return "Keep cut or ready-to-eat produce refrigerated at 4°C or lower in a clean container.";
+  if (item?.location === "Pantry") return "Keep in a cool, dry place and follow any storage instructions printed on the package.";
+  return "Follow the package instructions. Keep the fridge at 4°C (40°F) or lower and the freezer at −18°C (0°F) or lower.";
+}
+
 export function addDaysISO(days, date = new Date()) {
   return todayISO(new Date(date.getFullYear(), date.getMonth(), date.getDate() + Number(days)));
 }

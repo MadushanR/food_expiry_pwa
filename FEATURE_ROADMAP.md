@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — E6: Storage guidance**
-- Completed: 13 / 20
+- **In progress — E7: Use-it-up suggestions**
+- Completed: 14 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -54,9 +54,9 @@ This file is the hand-off source of truth for the current feature release. Work 
   - Suggest a freeze-by date for suitable foods while keeping it editable.
 - [x] **E4 — Thaw tracking** *(Complete — 2026-09-20)*
   - Record when frozen food is returned to active inventory and suggest a new use-by date.
-- [ ] **E6 — Storage guidance** *(In progress)*
+- [x] **E6 — Storage guidance** *(Complete — 2026-09-20)*
   - Provide concise, clearly identified guidance for common product categories.
-- [ ] **E7 — Use-it-up suggestions** *(Pending)*
+- [ ] **E7 — Use-it-up suggestions** *(In progress)*
   - Suggest practical combinations from foods that need attention soon.
   - Work locally without a paid AI service.
 - [ ] **B2 — Nutrition summary** *(Pending)*

@@ -4,7 +4,7 @@ import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
-  relativeExpiry, shoppingProgress, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, useFirstPriority, validateGroceryItem, validateItem
+  relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, useFirstPriority, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -211,6 +211,13 @@ test("thaw tracking suggests a short editable use-by date by food type", () => {
   assert.equal(suggestThawUseByDate({ name: "Bread" }, "2026-09-20"), "2026-09-23");
   assert.equal(suggestThawUseByDate({ name: "Mixed vegetables" }, "2026-09-20"), "2026-09-22");
   assert.equal(suggestThawUseByDate({ name: "Chicken" }, "invalid"), "");
+});
+
+test("storage guidance is concise and specific for common foods", () => {
+  assert.match(storageGuidance({ name: "Chicken breast", location: "Fridge" }), /bottom shelf/);
+  assert.match(storageGuidance({ name: "Greek yogurt", location: "Fridge" }), /about 4 days/);
+  assert.match(storageGuidance({ name: "Tomatoes", location: "Counter" }), /outside the refrigerator/);
+  assert.match(storageGuidance({ name: "Rice", location: "Pantry" }), /cool, dry place/);
 });
 
 test("partial outcomes retain the remainder and create a separate history record", () => {

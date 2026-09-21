@@ -82,6 +82,10 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .food-notes { margin-top: 7px; color: var(--muted); font-size: .82rem; }
 .use-first-reason { margin-top: 7px; color: var(--brown); font-size: .76rem; font-weight: 700; }
 .freeze-suggestion { margin-top: 5px; color: var(--accent-strong); font-size: .76rem; font-weight: 700; }
+.storage-guidance { margin-top: 8px; color: var(--muted); font-size: .76rem; line-height: 1.4; }
+.storage-guidance summary { color: var(--accent-strong); font-weight: 750; cursor: pointer; }
+.storage-guidance p { margin-top: 6px; }
+.storage-guidance a { color: var(--brown); }
 .form-suggestion { justify-self: start; }
 .item-menu { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .item-action {

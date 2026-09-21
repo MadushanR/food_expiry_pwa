@@ -1,7 +1,7 @@
 import {
   activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, useFirstPriority,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, useFirstPriority,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -132,6 +132,7 @@ function activeItemMarkup(item) {
       ${item.notes ? `<p class="food-notes">${escapeHTML(item.notes)}</p>` : ""}
       <p class="use-first-reason">Use first: ${escapeHTML(priority.reason)}</p>
       ${freezeBy ? `<p class="freeze-suggestion">${item.freezeByDate ? "Freeze by" : "Suggested freeze-by"}: ${escapeHTML(formatDate(freezeBy, { month: "short", day: "numeric" }))}</p>` : ""}
+      <details class="storage-guidance"><summary>General storage guidance</summary><p>${escapeHTML(storageGuidance(item))} <a href="https://www.canada.ca/en/health-canada/services/general-food-safety-tips/safe-food-storage.html" target="_blank" rel="noopener">Health Canada source</a></p></details>
     </div>
     <div class="item-menu"><button class="item-action primary-action" type="button" data-action="act" aria-label="Record an outcome for ${escapeHTML(item.name)}">Act</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action" type="button" data-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
   </article>`;
