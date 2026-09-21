@@ -348,6 +348,32 @@ export function storageGuidance(item) {
   return "Follow the package instructions. Keep the fridge at 4°C (40°F) or lower and the freezer at −18°C (0°F) or lower.";
 }
 
+export function useItUpSuggestions(foods = [], now = new Date()) {
+  const active = foods.filter((item) => item.status === "active");
+  const urgentIds = new Set(active.filter((item) => daysUntil(effectiveExpiryDate(item), now) <= 3).map((item) => item.id));
+  if (!urgentIds.size) return [];
+  const recipes = [
+    { title: "Sheet-pan chicken and vegetables", patterns: [/chicken/, /vegetable|tomato|onion|salad/] },
+    { title: "Egg and vegetable omelette", patterns: [/egg/, /tomato|onion|vegetable|salad/] },
+    { title: "Salmon rice bowl", patterns: [/salmon|fish/, /rice|vegetable|salad/] },
+    { title: "Yogurt fruit bowl", patterns: [/yogurt/, /berr|banana|strawberr|chia/] },
+    { title: "Tofu or paneer stir-fry", patterns: [/tofu|paneer/, /vegetable|rice|onion|tomato/] },
+    { title: "Quick filled tortillas", patterns: [/tortilla/, /chicken|tofu|paneer|egg|tomato|onion/] },
+    { title: "Fruit smoothie", patterns: [/milk|yogurt/, /banana|berr|strawberr/] },
+    { title: "Egg toast", patterns: [/egg/, /bread/] },
+  ];
+  const suggestions = recipes.map((recipe) => {
+    const matched = recipe.patterns.map((pattern) => active.find((item) => pattern.test(normalizeProductName(item.name)))).filter(Boolean);
+    if (matched.length !== recipe.patterns.length || !matched.some((item) => urgentIds.has(item.id))) return null;
+    return { title: recipe.title, ingredients: [...new Set(matched.map((item) => item.name))], reason: "Uses food that needs attention soon" };
+  }).filter(Boolean);
+  if (!suggestions.length) {
+    const item = active.find((entry) => urgentIds.has(entry.id));
+    return item ? [{ title: `Plan a meal around ${item.name}`, ingredients: [item.name], reason: relativeExpiry(effectiveExpiryDate(item), now) }] : [];
+  }
+  return suggestions.slice(0, 3);
+}
+
 export function addDaysISO(days, date = new Date()) {
   return todayISO(new Date(date.getFullYear(), date.getMonth(), date.getDate() + Number(days)));
 }

@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — E7: Use-it-up suggestions**
-- Completed: 14 / 20
+- **In progress — B2: Nutrition summary**
+- Completed: 15 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -56,10 +56,10 @@ This file is the hand-off source of truth for the current feature release. Work 
   - Record when frozen food is returned to active inventory and suggest a new use-by date.
 - [x] **E6 — Storage guidance** *(Complete — 2026-09-20)*
   - Provide concise, clearly identified guidance for common product categories.
-- [ ] **E7 — Use-it-up suggestions** *(In progress)*
+- [x] **E7 — Use-it-up suggestions** *(Complete — 2026-09-20)*
   - Suggest practical combinations from foods that need attention soon.
   - Work locally without a paid AI service.
-- [ ] **B2 — Nutrition summary** *(Pending)*
+- [ ] **B2 — Nutrition summary** *(In progress)*
   - Save and display available calories, protein, carbohydrates, fat, sugar, sodium, and fibre from barcode lookup.
   - Clearly indicate missing or externally sourced information.
 - [ ] **B3 — Nutri-Score** *(Pending)*

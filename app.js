@@ -1,7 +1,7 @@
 import {
   activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, useFirstPriority,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, useFirstPriority, useItUpSuggestions,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -14,6 +14,7 @@ const elements = {
   todayGroups: $("#todayGroups"), inventoryGroups: $("#inventoryGroups"), historyList: $("#historyList"),
   search: $("#searchInput"), filter: $("#filterSelect"), sort: $("#sortSelect"), historyFilter: $("#historyFilter"),
   expiredCount: $("#expiredCount"), todayCount: $("#todayCount"), soonCount: $("#soonCount"),
+  useItUpSection: $("#useItUpSection"), useItUpList: $("#useItUpList"),
   usedCount: $("#usedCount"), wastedCount: $("#wastedCount"), frozenCount: $("#frozenCount"),
   itemDialog: $("#itemDialog"), itemForm: $("#itemForm"), itemId: $("#itemId"), itemName: $("#itemName"),
   expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), freezeByDate: $("#freezeByDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), targetQuantity: $("#targetQuantity"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
@@ -163,6 +164,9 @@ function emptyMarkup(title, message, showAdd = false) {
 }
 
 function renderToday(active) {
+  const suggestions = useItUpSuggestions(active);
+  elements.useItUpSection.hidden = !suggestions.length;
+  elements.useItUpList.innerHTML = suggestions.map((suggestion) => `<article class="suggestion-card"><strong>${escapeHTML(suggestion.title)}</strong><span>${escapeHTML(suggestion.ingredients.join(" + "))}<br>${escapeHTML(suggestion.reason)}</span></article>`).join("");
   const urgent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) <= 3).sort((a, b) => useFirstPriority(b).score - useFirstPriority(a).score);
   if (!urgent.length) {
     elements.todayGroups.innerHTML = emptyMarkup("Nothing urgent", active.length ? "Everything is more than three days away." : "Add your first food item to start tracking.", !active.length);

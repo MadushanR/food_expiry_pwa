@@ -4,7 +4,7 @@ import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
-  relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, useFirstPriority, validateGroceryItem, validateItem
+  relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, useFirstPriority, useItUpSuggestions, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -218,6 +218,18 @@ test("storage guidance is concise and specific for common foods", () => {
   assert.match(storageGuidance({ name: "Greek yogurt", location: "Fridge" }), /about 4 days/);
   assert.match(storageGuidance({ name: "Tomatoes", location: "Counter" }), /outside the refrigerator/);
   assert.match(storageGuidance({ name: "Rice", location: "Pantry" }), /cool, dry place/);
+});
+
+test("use-it-up ideas combine active foods when at least one needs attention", () => {
+  const foods = [
+    normalizeItem({ id: "eggs", name: "Eggs", expiry: "2026-09-21" }),
+    normalizeItem({ id: "tomato", name: "Cherry Tomatoes", expiry: "2026-09-28" }),
+    normalizeItem({ id: "rice", name: "Rice", expiry: "2027-01-01" }),
+  ];
+  const suggestions = useItUpSuggestions(foods, now);
+  assert.equal(suggestions[0].title, "Egg and vegetable omelette");
+  assert.deepEqual(suggestions[0].ingredients, ["Eggs", "Cherry Tomatoes"]);
+  assert.deepEqual(useItUpSuggestions([normalizeItem({ name: "Rice", expiry: "2027-01-01" })], now), []);
 });
 
 test("partial outcomes retain the remainder and create a separate history record", () => {

@@ -86,6 +86,11 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .storage-guidance summary { color: var(--accent-strong); font-weight: 750; cursor: pointer; }
 .storage-guidance p { margin-top: 6px; }
 .storage-guidance a { color: var(--brown); }
+.use-it-up { display: grid; gap: 10px; margin: -8px 0 28px; }
+.suggestion-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.suggestion-card { padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: var(--brown-soft); }
+.suggestion-card strong { display: block; margin-bottom: 6px; font-size: .9rem; }
+.suggestion-card span { color: var(--muted); font-size: .75rem; line-height: 1.35; }
 .form-suggestion { justify-self: start; }
 .item-menu { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .item-action {
@@ -211,6 +216,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
   .view-heading .heading-actions { align-items: stretch; flex-direction: column-reverse; }
   .shopping-controls { grid-template-columns: 1fr; }
   .shopping-progress-copy { justify-items: start; }
+  .suggestion-list { grid-template-columns: 1fr; }
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
