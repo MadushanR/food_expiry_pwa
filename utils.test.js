@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
-  activeProductQuantity, configuredLowStockThreshold, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
+  activeProductQuantity, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
-  relativeExpiry, shoppingProgress, validateGroceryItem, validateItem
+  relativeExpiry, shoppingProgress, suggestedRestockQuantity, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -25,6 +25,7 @@ test("invalid calendar dates are rejected", () => {
   assert.equal(validateItem(normalizeItem({ name: "Milk", expiry: "2026-09-25", openedDate: "2026-02-30" })), "Choose a valid opened date.");
   assert.equal(validateItem(normalizeItem({ name: "Milk", expiry: "2026-09-25", afterOpeningDays: 0 })), "After-opening lifetime must be at least one day.");
   assert.equal(validateItem(normalizeItem({ name: "Milk", expiry: "2026-09-25", lowStockThreshold: -1 })), "Low-stock level must be zero or more.");
+  assert.equal(validateItem(normalizeItem({ name: "Milk", expiry: "2026-09-25", lowStockThreshold: 2, targetQuantity: 2 })), "Target stock must be greater than the low-stock level.");
 });
 
 test("legacy items are normalized into the new schema", () => {
@@ -131,11 +132,12 @@ test("after-opening lifetime uses the earlier of its use-by date and label expir
 test("favourite food templates persist reusable product details and match items", () => {
   const template = normalizeFoodTemplate({
     id: "template-milk", name: " Milk ", quantity: "2", unit: "cartons", location: "Fridge",
-    brand: "Farm", barcode: "00628123456789", lowStockThreshold: 1,
+    brand: "Farm", barcode: "00628123456789", lowStockThreshold: 1, targetQuantity: 4,
   });
   assert.equal(template.name, "Milk");
   assert.equal(template.quantity, 2);
   assert.equal(template.lowStockThreshold, 1);
+  assert.equal(template.targetQuantity, 4);
   assert.equal(findMatchingFoodTemplate({ favoriteTemplateId: "template-milk" }, [template]), template);
   assert.equal(findMatchingFoodTemplate({ name: "Milk", barcode: "628123456789" }, [template]), template);
   assert.equal(findMatchingFoodTemplate({ name: "Eggs" }, [template]), null);
@@ -151,6 +153,14 @@ test("low-stock levels aggregate active batches of the same product", () => {
   const template = normalizeFoodTemplate({ name: "Milk", lowStockThreshold: 4 });
   assert.equal(configuredLowStockThreshold({ name: "Milk" }, [another], [template]), 4);
   assert.equal(configuredLowStockThreshold({ name: "Eggs" }, [another], [template]), null);
+});
+
+test("suggested shopping quantity fills the configured target from current stock", () => {
+  const template = normalizeFoodTemplate({ name: "Eggs", targetQuantity: 12 });
+  const stock = [normalizeItem({ name: "Eggs", expiry: "2026-09-25", quantity: 4 })];
+  assert.equal(configuredTargetQuantity({ name: "Eggs" }, stock, [template]), 12);
+  assert.equal(suggestedRestockQuantity({ name: "Eggs" }, stock, [template]), 8);
+  assert.equal(suggestedRestockQuantity({ name: "Eggs", targetQuantity: 3 }, stock, [template]), 0);
 });
 
 test("shopping progress keeps purchased items in the active trip total", () => {

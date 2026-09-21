@@ -1,7 +1,7 @@
 import {
   activeProductQuantity, addDaysISO, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, todayISO,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestedRestockQuantity, todayISO,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -16,7 +16,7 @@ const elements = {
   expiredCount: $("#expiredCount"), todayCount: $("#todayCount"), soonCount: $("#soonCount"),
   usedCount: $("#usedCount"), wastedCount: $("#wastedCount"), frozenCount: $("#frozenCount"),
   itemDialog: $("#itemDialog"), itemForm: $("#itemForm"), itemId: $("#itemId"), itemName: $("#itemName"),
-  expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
+  expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), targetQuantity: $("#targetQuantity"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
   formError: $("#formError"), formTitle: $("#formTitle"), formEyebrow: $("#formEyebrow"),
@@ -135,7 +135,7 @@ function historyItemMarkup(item) {
 }
 
 function groceryItemMarkup(item) {
-  const quantity = item.quantity ? ` · ${escapeHTML(item.quantity)}` : "";
+  const quantity = item.quantity ? ` · ${escapeHTML(item.quantity)}` : item.suggestedQuantity ? ` · Suggested ${escapeHTML(item.suggestedQuantity)}` : "";
   return `<article class="grocery-row ${item.have ? "have" : ""}" data-grocery-id="${escapeHTML(item.id)}">
     <input class="grocery-toggle" type="checkbox" ${item.have ? "checked" : ""} aria-label="${item.have ? "Move" : "Mark"} ${escapeHTML(item.name)} ${item.have ? "to shopping list" : "as already have"}">
     <div><p class="grocery-name">${escapeHTML(item.name)}</p><p class="grocery-meta"><span class="store-label">${escapeHTML(item.store)}</span>${quantity}</p></div>
@@ -226,7 +226,7 @@ function renderShoppingMode() {
     elements.shoppingList.innerHTML = emptyMarkup("Nothing to buy here", `Your ${elements.shoppingStore.value} list is complete.`);
     return;
   }
-  elements.shoppingList.innerHTML = tripItems.map((item) => `<label class="shopping-row ${item.have ? "have" : ""}" data-shopping-id="${escapeHTML(item.id)}"><input class="shopping-toggle" type="checkbox" ${item.have ? "checked" : ""}><span><strong>${escapeHTML(item.name)}</strong><span>${item.quantity ? escapeHTML(item.quantity) : "Tap when it is in your cart"}</span></span></label>`).join("");
+  elements.shoppingList.innerHTML = tripItems.map((item) => `<label class="shopping-row ${item.have ? "have" : ""}" data-shopping-id="${escapeHTML(item.id)}"><input class="shopping-toggle" type="checkbox" ${item.have ? "checked" : ""}><span><strong>${escapeHTML(item.name)}</strong><span>${item.quantity ? escapeHTML(item.quantity) : item.suggestedQuantity ? `Suggested ${escapeHTML(item.suggestedQuantity)}` : "Tap when it is in your cart"}</span></span></label>`).join("");
 }
 
 function beginStoreTrip(store) {
@@ -287,6 +287,7 @@ function fillFromTemplate(template) {
   elements.quantity.value = template.quantity ?? ""; elements.unit.value = template.unit;
   elements.afterOpeningDays.value = template.afterOpeningDays ?? "";
   elements.lowStockThreshold.value = template.lowStockThreshold ?? "";
+  elements.targetQuantity.value = template.targetQuantity ?? "";
   elements.brand.value = template.brand; elements.barcode.value = template.barcode;
 }
 
@@ -297,6 +298,7 @@ function openItemDialog(item = null) {
   elements.openedDate.value = item?.openedDate || "";
   elements.afterOpeningDays.value = item?.afterOpeningDays ?? "";
   elements.lowStockThreshold.value = item?.lowStockThreshold ?? "";
+  elements.targetQuantity.value = item?.targetQuantity ?? "";
   elements.quantity.value = item?.quantity ?? ""; elements.unit.value = item?.unit || ""; elements.location.value = item?.location || "Fridge"; elements.notes.value = item?.notes || "";
   elements.barcode.value = item?.barcode || ""; elements.brand.value = item?.brand || ""; elements.manualBarcode.value = "";
   const favourite = item ? findMatchingFoodTemplate(item, foodTemplates) : null;
@@ -356,6 +358,7 @@ function fillProductFields(product, parsed, source) {
   if (packageSize.unit) elements.unit.value = packageSize.unit;
   if (product?.afterOpeningDays != null) elements.afterOpeningDays.value = product.afterOpeningDays;
   if (product?.lowStockThreshold != null) elements.lowStockThreshold.value = product.lowStockThreshold;
+  if (product?.targetQuantity != null) elements.targetQuantity.value = product.targetQuantity;
   elements.barcode.value = parsed.barcode;
   elements.expiryDate.value = parsed.expiryDate || "";
   const dateMessage = parsed.expiryDate
@@ -438,16 +441,18 @@ async function syncGroceryForItem(item, currentItems = items) {
   if (!grocery) return null;
   const threshold = configuredLowStockThreshold(item, currentItems, foodTemplates);
   const stock = activeProductQuantity(item, currentItems);
+  const suggested = suggestedRestockQuantity(item, currentItems, foodTemplates);
   const shouldHave = item.status === "frozen"
     ? true
     : threshold != null
       ? stock > threshold
       : item.status === "active" || hasActiveGroceryMatch(grocery, currentItems, item.id);
-  const changed = grocery.have !== shouldHave;
+  const suggestedQuantity = !shouldHave && suggested > 0 ? `${suggested}${item.unit ? ` ${item.unit}` : ""}` : "";
+  const changed = grocery.have !== shouldHave || grocery.suggestedQuantity !== suggestedQuantity;
   if (changed) {
-    await saveGroceryItem(db, { ...grocery, have: shouldHave, updatedAt: new Date().toISOString() });
+    await saveGroceryItem(db, { ...grocery, have: shouldHave, suggestedQuantity, updatedAt: new Date().toISOString() });
   }
-  return { grocery, changed, shouldHave, threshold, stock };
+  return { grocery, changed, shouldHave, threshold, stock, suggestedQuantity };
 }
 
 function grocerySyncSuffix(sync) {
@@ -524,6 +529,7 @@ async function saveForm(event) {
     openedDate: elements.openedDate.value,
     afterOpeningDays: elements.afterOpeningDays.value,
     lowStockThreshold: elements.lowStockThreshold.value,
+    targetQuantity: elements.targetQuantity.value,
     quantity: elements.quantity.value, unit: elements.unit.value, location: elements.location.value, notes: elements.notes.value,
     barcode: elements.barcode.value, brand: elements.brand.value,
     favoriteTemplateId: elements.saveFavorite.checked ? (elements.favoriteTemplateId.value || existing?.favoriteTemplateId || makeId()) : null,
@@ -548,10 +554,15 @@ async function saveGroceryForm(event) {
   const existing = groceryItems.find((item) => item.id === elements.groceryItemId.value);
   const item = normalizeGroceryItem({
     ...existing, id: existing?.id || makeId(), name: elements.groceryItemName.value, quantity: elements.groceryQuantity.value,
+    suggestedQuantity: existing?.suggestedQuantity || "",
     store: elements.groceryStore.value, have: elements.groceryHave.checked,
     createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
   });
-  if (hasActiveGroceryMatch(item, items)) item.have = true;
+  const linkedFood = items.find((food) => food.status === "active" && findMatchingGroceryItem(food, [item]));
+  if (linkedFood) {
+    const threshold = configuredLowStockThreshold(linkedFood, items, foodTemplates);
+    item.have = threshold == null ? true : activeProductQuantity(linkedFood, items) > threshold;
+  }
   const error = validateGroceryItem(item); if (error) { elements.groceryFormError.textContent = error; return; }
   const duplicate = groceryItems.find((other) => other.id !== item.id && other.store === item.store && other.name.toLowerCase() === item.name.toLowerCase());
   if (duplicate && !confirm(`${item.name} is already listed for ${item.store}. Save another one?`)) return;
@@ -570,14 +581,14 @@ async function handleGroceryClick(event) {
 async function handleGroceryToggle(event) {
   const checkbox = event.target.closest(".grocery-toggle"); if (!checkbox) return;
   const item = groceryItems.find((entry) => entry.id === checkbox.closest("[data-grocery-id]")?.dataset.groceryId); if (!item) return;
-  await saveGroceryItem(db, { ...item, have: checkbox.checked, updatedAt: new Date().toISOString() });
+  await saveGroceryItem(db, { ...item, have: checkbox.checked, suggestedQuantity: checkbox.checked ? "" : item.suggestedQuantity, updatedAt: new Date().toISOString() });
   await refresh(); showToast(checkbox.checked ? `${item.name} marked as already have` : `${item.name} added to shopping list`);
 }
 
 async function handleShoppingToggle(event) {
   const checkbox = event.target.closest(".shopping-toggle"); if (!checkbox) return;
   const item = groceryItems.find((entry) => entry.id === checkbox.closest("[data-shopping-id]")?.dataset.shoppingId); if (!item) return;
-  await saveGroceryItem(db, { ...item, have: checkbox.checked, updatedAt: new Date().toISOString() });
+  await saveGroceryItem(db, { ...item, have: checkbox.checked, suggestedQuantity: checkbox.checked ? "" : item.suggestedQuantity, updatedAt: new Date().toISOString() });
   groceryItems = await getGroceryItems(db); renderGroceries(); renderShoppingMode();
 }
 
@@ -632,6 +643,7 @@ function bindEvents() {
     elements.itemName.value = template.name; elements.location.value = template.location; elements.quantity.value = template.quantity ?? ""; elements.unit.value = template.unit;
     elements.afterOpeningDays.value = template.afterOpeningDays ?? "";
     elements.lowStockThreshold.value = template.lowStockThreshold ?? "";
+    elements.targetQuantity.value = template.targetQuantity ?? "";
     elements.brand.value = template.brand || ""; elements.barcode.value = template.barcode || "";
   });
   elements.favoriteFoodButtons.addEventListener("click", async (event) => {

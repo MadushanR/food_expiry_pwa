@@ -52,6 +52,7 @@ export function normalizeItem(raw = {}) {
     openedDate: String(raw.openedDate || ""),
     afterOpeningDays: raw.afterOpeningDays === "" || raw.afterOpeningDays == null ? null : Number(raw.afterOpeningDays),
     lowStockThreshold: raw.lowStockThreshold === "" || raw.lowStockThreshold == null ? null : Number(raw.lowStockThreshold),
+    targetQuantity: raw.targetQuantity === "" || raw.targetQuantity == null ? null : Number(raw.targetQuantity),
     quantity: raw.quantity === "" || raw.quantity == null ? null : Number(raw.quantity),
     unit: String(raw.unit || "").trim(),
     location: String(raw.location || "Fridge"),
@@ -104,6 +105,7 @@ export function normalizeFoodTemplate(raw = {}) {
     barcode: String(raw.barcode || "").trim(),
     afterOpeningDays: raw.afterOpeningDays === "" || raw.afterOpeningDays == null ? null : Number(raw.afterOpeningDays),
     lowStockThreshold: raw.lowStockThreshold === "" || raw.lowStockThreshold == null ? null : Number(raw.lowStockThreshold),
+    targetQuantity: raw.targetQuantity === "" || raw.targetQuantity == null ? null : Number(raw.targetQuantity),
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
   };
@@ -213,6 +215,20 @@ export function configuredLowStockThreshold(reference, foods = [], templates = [
   return matchingFood ? Number(matchingFood.lowStockThreshold) : null;
 }
 
+export function configuredTargetQuantity(reference, foods = [], templates = []) {
+  if (reference?.targetQuantity != null) return Number(reference.targetQuantity);
+  const template = findMatchingFoodTemplate(reference, templates);
+  if (template?.targetQuantity != null) return Number(template.targetQuantity);
+  const matchingFood = foods.find((food) => sameProduct(reference, food) && food.targetQuantity != null);
+  return matchingFood ? Number(matchingFood.targetQuantity) : null;
+}
+
+export function suggestedRestockQuantity(reference, foods = [], templates = []) {
+  const target = configuredTargetQuantity(reference, foods, templates);
+  if (target == null) return null;
+  return Math.max(0, target - activeProductQuantity(reference, foods));
+}
+
 export function shoppingProgress(groceries = [], itemIds = []) {
   const selected = itemIds.map((id) => groceries.find((item) => item.id === id)).filter(Boolean);
   const bought = selected.filter((item) => item.have).length;
@@ -225,6 +241,7 @@ export function normalizeGroceryItem(raw = {}) {
     id: String(raw.id || makeId()),
     name: String(raw.name || "").trim(),
     quantity: String(raw.quantity || "").trim(),
+    suggestedQuantity: String(raw.suggestedQuantity || "").trim(),
     store: String(raw.store || "Other").trim() || "Other",
     have: Boolean(raw.have),
     createdAt: raw.createdAt || now,
@@ -244,6 +261,8 @@ export function validateItem(item) {
   if (item.openedDate && !parseLocalDate(item.openedDate)) return "Choose a valid opened date.";
   if (item.afterOpeningDays != null && (!Number.isInteger(item.afterOpeningDays) || item.afterOpeningDays < 1)) return "After-opening lifetime must be at least one day.";
   if (item.lowStockThreshold != null && (!Number.isFinite(item.lowStockThreshold) || item.lowStockThreshold < 0)) return "Low-stock level must be zero or more.";
+  if (item.targetQuantity != null && (!Number.isFinite(item.targetQuantity) || item.targetQuantity < 0)) return "Target stock must be zero or more.";
+  if (item.targetQuantity != null && item.lowStockThreshold != null && item.targetQuantity <= item.lowStockThreshold) return "Target stock must be greater than the low-stock level.";
   if (item.quantity != null && (!Number.isFinite(item.quantity) || item.quantity < 0)) return "Quantity must be zero or more.";
   return "";
 }

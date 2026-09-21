@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — G6: Suggested quantities**
-- Completed: 7 / 20
+- **In progress — G14: Buy again**
+- Completed: 8 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -40,10 +40,10 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **G4 — Low-stock replenishment** *(Complete — 2026-09-20)*
   - Apply low-stock rules automatically after partial use, use, waste, restore, and quantity edits.
   - Explain automatic shopping-list changes to the user.
-- [ ] **G6 — Suggested quantities** *(In progress)*
+- [x] **G6 — Suggested quantities** *(Complete — 2026-09-20)*
   - Suggest a shopping quantity from the configured target and current active stock.
   - Keep the suggested quantity editable.
-- [ ] **G14 — Buy again** *(Pending)*
+- [ ] **G14 — Buy again** *(In progress)*
   - Save completed shopping trips and restore all or selected items to To buy.
 - [ ] **E1 — Expiry calendar** *(Pending)*
   - Add a weekly/monthly calendar-style view of active expiry dates.
