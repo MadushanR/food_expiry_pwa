@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
-  activeProductQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
+  activeProductQuantity, configuredLowStockThreshold, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
   relativeExpiry, shoppingProgress, validateGroceryItem, validateItem
 } from "./utils.js";
@@ -148,6 +148,9 @@ test("low-stock levels aggregate active batches of the same product", () => {
   assert.equal(activeProductQuantity(reference, [reference, another, used]), 3);
   assert.equal(isLowStock(reference, [reference, another, used]), false);
   assert.equal(isLowStock(reference, [reference, used]), true);
+  const template = normalizeFoodTemplate({ name: "Milk", lowStockThreshold: 4 });
+  assert.equal(configuredLowStockThreshold({ name: "Milk" }, [another], [template]), 4);
+  assert.equal(configuredLowStockThreshold({ name: "Eggs" }, [another], [template]), null);
 });
 
 test("shopping progress keeps purchased items in the active trip total", () => {

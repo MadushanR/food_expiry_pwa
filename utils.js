@@ -205,6 +205,14 @@ export function isLowStock(reference, foods = []) {
   return reference?.lowStockThreshold != null && activeProductQuantity(reference, foods) <= Number(reference.lowStockThreshold);
 }
 
+export function configuredLowStockThreshold(reference, foods = [], templates = []) {
+  if (reference?.lowStockThreshold != null) return Number(reference.lowStockThreshold);
+  const template = findMatchingFoodTemplate(reference, templates);
+  if (template?.lowStockThreshold != null) return Number(template.lowStockThreshold);
+  const matchingFood = foods.find((food) => sameProduct(reference, food) && food.lowStockThreshold != null);
+  return matchingFood ? Number(matchingFood.lowStockThreshold) : null;
+}
+
 export function shoppingProgress(groceries = [], itemIds = []) {
   const selected = itemIds.map((id) => groceries.find((item) => item.id === id)).filter(Boolean);
   const bought = selected.filter((item) => item.have).length;

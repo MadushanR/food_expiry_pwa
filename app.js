@@ -1,5 +1,5 @@
 import {
-  addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
+  activeProductQuantity, addDaysISO, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, todayISO,
   validateGroceryItem, validateItem
@@ -354,6 +354,8 @@ function fillProductFields(product, parsed, source) {
   if (brand) elements.brand.value = brand;
   if (packageSize.quantity != null) elements.quantity.value = packageSize.quantity;
   if (packageSize.unit) elements.unit.value = packageSize.unit;
+  if (product?.afterOpeningDays != null) elements.afterOpeningDays.value = product.afterOpeningDays;
+  if (product?.lowStockThreshold != null) elements.lowStockThreshold.value = product.lowStockThreshold;
   elements.barcode.value = parsed.barcode;
   elements.expiryDate.value = parsed.expiryDate || "";
   const dateMessage = parsed.expiryDate
@@ -434,15 +436,24 @@ async function startScanner() {
 async function syncGroceryForItem(item, currentItems = items) {
   const grocery = findMatchingGroceryItem(item, groceryItems);
   if (!grocery) return null;
+  const threshold = configuredLowStockThreshold(item, currentItems, foodTemplates);
+  const stock = activeProductQuantity(item, currentItems);
   const shouldHave = item.status === "frozen"
     ? true
-    : item.lowStockThreshold != null
-      ? !isLowStock(item, currentItems)
+    : threshold != null
+      ? stock > threshold
       : item.status === "active" || hasActiveGroceryMatch(grocery, currentItems, item.id);
-  if (grocery.have !== shouldHave) {
+  const changed = grocery.have !== shouldHave;
+  if (changed) {
     await saveGroceryItem(db, { ...grocery, have: shouldHave, updatedAt: new Date().toISOString() });
   }
-  return grocery;
+  return { grocery, changed, shouldHave, threshold, stock };
+}
+
+function grocerySyncSuffix(sync) {
+  if (!sync?.changed) return "";
+  if (!sync.shouldHave && sync.threshold != null) return ` · grocery added at ${sync.stock} remaining`;
+  return sync.shouldHave ? " · grocery marked Have" : " · added to groceries";
 }
 
 function openOutcome(item) {
@@ -470,12 +481,17 @@ async function handleItemAction(event) {
     await saveItem(db, { ...item, favoriteTemplateId: template.id, updatedAt: new Date().toISOString() });
     await refresh(); showToast(`${item.name} saved as a favourite`); return;
   }
-  if (button.dataset.action === "delete") { await removeItem(db, item.id); await refresh(); showToast(`${item.name} deleted`, item); return; }
+  if (button.dataset.action === "delete") {
+    await removeItem(db, item.id);
+    const nextItems = items.filter((entry) => entry.id !== item.id);
+    const sync = configuredLowStockThreshold(item, nextItems, foodTemplates) != null ? await syncGroceryForItem(item, nextItems) : null;
+    await refresh(); showToast(`${item.name} deleted${grocerySyncSuffix(sync)}`, item); return;
+  }
   if (button.dataset.action === "restore") {
     const previous = { ...item };
     const restored = { ...item, status: "active", completedAt: null, updatedAt: new Date().toISOString() };
-    await saveItem(db, restored); await syncGroceryForItem(restored, items.map((entry) => entry.id === item.id ? restored : entry));
-    await refresh(); showToast(`${item.name} restored`, previous);
+    await saveItem(db, restored); const sync = await syncGroceryForItem(restored, items.map((entry) => entry.id === item.id ? restored : entry));
+    await refresh(); showToast(`${item.name} restored${grocerySyncSuffix(sync)}`, previous);
   }
 }
 
@@ -487,17 +503,17 @@ async function recordOutcome(status) {
   if (outcome.partial) {
     await saveItem(db, outcome.remaining); await saveItem(db, outcome.completed);
     const nextItems = items.map((entry) => entry.id === item.id ? outcome.remaining : entry).concat(outcome.completed);
-    await syncGroceryForItem(outcome.completed, nextItems);
+    const sync = await syncGroceryForItem(outcome.completed, nextItems);
     elements.outcomeDialog.close(); actionItemId = null; await refresh();
     const amount = `${outcome.completed.quantity}${outcome.completed.unit ? ` ${outcome.completed.unit}` : ""}`;
-    showToast(`${amount} of ${item.name} marked ${status}`, async () => {
+    showToast(`${amount} of ${item.name} marked ${status}${grocerySyncSuffix(sync)}`, async () => {
       await saveItem(db, item); await removeItem(db, outcome.completed.id); await syncGroceryForItem(item, items);
     });
     return;
   }
   const nextItems = items.map((entry) => entry.id === item.id ? outcome.completed : entry);
-  await saveItem(db, outcome.completed); await syncGroceryForItem(outcome.completed, nextItems);
-  elements.outcomeDialog.close(); actionItemId = null; await refresh(); showToast(`${item.name} marked ${status}`, item);
+  await saveItem(db, outcome.completed); const sync = await syncGroceryForItem(outcome.completed, nextItems);
+  elements.outcomeDialog.close(); actionItemId = null; await refresh(); showToast(`${item.name} marked ${status}${grocerySyncSuffix(sync)}`, item);
 }
 
 async function saveForm(event) {
@@ -522,9 +538,9 @@ async function saveForm(event) {
   if (elements.saveFavorite.checked) {
     await saveFoodTemplate(db, normalizeFoodTemplate({ ...item, id: item.favoriteTemplateId, createdAt: previousTemplate?.createdAt }));
   } else if (previousTemplate) await removeFoodTemplate(db, previousTemplate.id);
-  await saveItem(db, item); await syncGroceryForItem(item, items.map((entry) => entry.id === item.id ? item : entry).concat(existing ? [] : [item]));
+  await saveItem(db, item); const sync = await syncGroceryForItem(item, items.map((entry) => entry.id === item.id ? item : entry).concat(existing ? [] : [item]));
   stopScanner(); elements.itemDialog.close(); await refresh();
-  showToast(grocery ? `${item.name} saved · grocery list updated` : (existing ? `${item.name} updated` : `${item.name} added`));
+  showToast(grocery ? `${item.name} saved${grocerySyncSuffix(sync) || " · grocery list checked"}` : (existing ? `${item.name} updated` : `${item.name} added`));
 }
 
 async function saveGroceryForm(event) {
