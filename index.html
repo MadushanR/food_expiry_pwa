@@ -59,6 +59,7 @@
           <label><span class="sr-only">Filter shopping status</span><select id="groceryStatusFilter"><option value="need">To buy</option><option value="all">All items</option><option value="have">Already have</option></select></label>
         </div>
         <div id="groceryList" class="inventory-groups" aria-live="polite"></div>
+        <section class="recent-trips" id="recentTripsSection" hidden><div class="group-title"><h3>Recent trips</h3><span>Buy a previous list again</span></div><div id="recentTrips" class="trip-list"></div></section>
       </section>
 
       <section class="app-view" id="historyView" data-view="history" aria-labelledby="historyHeading" hidden>
@@ -158,6 +159,13 @@
     <div class="shopping-progress-track" aria-hidden="true"><span id="shoppingProgressBar"></span></div>
     <div id="shoppingList" class="shopping-list" aria-live="polite"></div>
     <div class="shopping-footer"><button class="primary-button" id="finishShoppingButton" type="button">Finish trip</button></div>
+  </dialog>
+
+  <dialog id="buyAgainDialog" class="app-dialog compact-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Previous trip</p><h2 id="buyAgainTitle">Buy again</h2></div><button class="icon-button close-button" id="closeBuyAgainButton" type="button" aria-label="Close">×</button></div>
+    <p class="dialog-copy">Choose which items should return to your To buy list.</p>
+    <div id="buyAgainList" class="buy-again-list"></div>
+    <div class="dialog-actions"><button class="secondary-button" id="cancelBuyAgainButton" type="button">Cancel</button><button class="primary-button" id="confirmBuyAgainButton" type="button">Add selected</button></div>
   </dialog>
 
   <dialog id="dataDialog" class="app-dialog compact-dialog">

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
-  activeProductQuantity, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
+  activeProductQuantity, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
   relativeExpiry, shoppingProgress, suggestedRestockQuantity, validateGroceryItem, validateItem
 } from "./utils.js";
@@ -170,6 +170,15 @@ test("shopping progress keeps purchased items in the active trip total", () => {
     normalizeGroceryItem({ id: "bread", name: "Bread", have: true }),
   ];
   assert.deepEqual(shoppingProgress(groceries, ["milk", "eggs"]), { bought: 1, total: 2, remaining: 1 });
+});
+
+test("completed shopping trips preserve reusable item snapshots", () => {
+  const trip = normalizeShoppingTrip({ id: "trip-1", store: "Walmart", completedAt: "2026-09-20T20:00:00Z", items: [
+    { groceryItemId: "milk", name: " Milk ", quantity: "2 cartons", store: "Walmart" },
+    { name: "" },
+  ] });
+  assert.equal(trip.items.length, 1);
+  assert.deepEqual(trip.items[0], { groceryItemId: "milk", name: "Milk", quantity: "2 cartons", store: "Walmart" });
 });
 
 test("partial outcomes retain the remainder and create a separate history record", () => {

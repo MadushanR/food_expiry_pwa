@@ -1,12 +1,12 @@
 import {
   activeProductQuantity, addDaysISO, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
-  groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
+  groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
   parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestedRestockQuantity, todayISO,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
-  getFoodTemplates, getGroceryItems, getItems, migrateLegacyItems, openDatabase, removeFoodTemplate, removeGroceryItem,
-  removeItem, replaceFoodTemplates, replaceGroceryItems, replaceItems, saveFoodTemplate, saveGroceryItem, saveItem, seedGroceryItems
+  getFoodTemplates, getGroceryItems, getItems, getShoppingTrips, migrateLegacyItems, openDatabase, removeFoodTemplate, removeGroceryItem,
+  removeItem, replaceFoodTemplates, replaceGroceryItems, replaceItems, replaceShoppingTrips, saveFoodTemplate, saveGroceryItem, saveItem, saveShoppingTrip, seedGroceryItems
 } from "./storage.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -34,6 +34,8 @@ const elements = {
   groceryFormTitle: $("#groceryFormTitle"), groceryFormEyebrow: $("#groceryFormEyebrow"),
   shoppingDialog: $("#shoppingDialog"), shoppingStore: $("#shoppingStore"), shoppingList: $("#shoppingList"),
   shoppingProgressText: $("#shoppingProgressText"), shoppingProgressBar: $("#shoppingProgressBar"), shoppingWakeStatus: $("#shoppingWakeStatus"),
+  recentTripsSection: $("#recentTripsSection"), recentTrips: $("#recentTrips"), buyAgainDialog: $("#buyAgainDialog"),
+  buyAgainTitle: $("#buyAgainTitle"), buyAgainList: $("#buyAgainList"),
   dataDialog: $("#dataDialog"), dataStatus: $("#dataStatus"), themeSelect: $("#themeSelect"),
   toast: $("#toast"), toastMessage: $("#toastMessage"), undoButton: $("#undoButton"),
 };
@@ -42,6 +44,7 @@ let db;
 let items = [];
 let groceryItems = [];
 let foodTemplates = [];
+let shoppingTrips = [];
 let undoAction = null;
 let actionItemId = null;
 let toastTimer = null;
@@ -50,6 +53,7 @@ let barcodeLookupPending = false;
 let barcodeLookupController = null;
 let shoppingItemIds = [];
 let wakeLock = null;
+let selectedTripId = null;
 
 function escapeHTML(value) {
   const node = document.createElement("span");
@@ -217,6 +221,12 @@ function renderGroceries() {
   }).join("");
 }
 
+function renderRecentTrips() {
+  const recent = [...shoppingTrips].sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 5);
+  elements.recentTripsSection.hidden = !recent.length;
+  elements.recentTrips.innerHTML = recent.map((trip) => `<article class="trip-card"><div><strong>${escapeHTML(trip.store)}</strong><p>${escapeHTML(formatCompleted(trip.completedAt))} · ${trip.items.length} item${trip.items.length === 1 ? "" : "s"}</p></div><button class="secondary-button" type="button" data-buy-again-id="${escapeHTML(trip.id)}">Buy again</button></article>`).join("");
+}
+
 function renderShoppingMode() {
   const tripItems = shoppingItemIds.map((id) => groceryItems.find((item) => item.id === id)).filter(Boolean);
   const progress = shoppingProgress(groceryItems, shoppingItemIds);
@@ -261,12 +271,44 @@ async function closeShoppingMode() {
   await releaseWakeLock(); elements.shoppingDialog.close(); shoppingItemIds = [];
 }
 
+async function finishShoppingTrip() {
+  const collected = shoppingItemIds.map((id) => groceryItems.find((item) => item.id === id)).filter((item) => item?.have);
+  if (collected.length) {
+    await saveShoppingTrip(db, normalizeShoppingTrip({
+      store: elements.shoppingStore.value,
+      items: collected.map((item) => ({ groceryItemId: item.id, name: item.name, quantity: item.quantity || item.suggestedQuantity, store: item.store })),
+    }));
+  }
+  await closeShoppingMode(); await refresh();
+  showToast(collected.length ? `Trip saved with ${collected.length} collected item${collected.length === 1 ? "" : "s"}` : "Shopping mode closed");
+}
+
+function openBuyAgain(trip) {
+  selectedTripId = trip.id; elements.buyAgainTitle.textContent = `${trip.store} trip`;
+  elements.buyAgainList.innerHTML = trip.items.map((item, index) => `<label class="buy-again-row"><input type="checkbox" data-trip-item-index="${index}" checked><span><strong>${escapeHTML(item.name)}</strong>${item.quantity ? `<span class="helper-text">${escapeHTML(item.quantity)}</span>` : ""}</span></label>`).join("");
+  elements.buyAgainDialog.showModal();
+}
+
+async function confirmBuyAgain() {
+  const trip = shoppingTrips.find((entry) => entry.id === selectedTripId); if (!trip) return;
+  const selected = [...elements.buyAgainList.querySelectorAll("[data-trip-item-index]:checked")].map((input) => trip.items[Number(input.dataset.tripItemIndex)]).filter(Boolean);
+  for (const tripItem of selected) {
+    const existing = groceryItems.find((item) => item.id === tripItem.groceryItemId) || groceryItems.find((item) => item.store === tripItem.store && item.name.toLowerCase() === tripItem.name.toLowerCase());
+    await saveGroceryItem(db, normalizeGroceryItem({
+      ...existing, id: existing?.id || tripItem.groceryItemId || makeId(), name: tripItem.name,
+      quantity: tripItem.quantity || existing?.quantity || "", store: tripItem.store, have: false,
+      createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+    }));
+  }
+  elements.buyAgainDialog.close(); selectedTripId = null; await refresh(); showToast(`${selected.length} item${selected.length === 1 ? "" : "s"} returned to To buy`);
+}
+
 function render() {
   const active = items.filter((item) => item.status === "active");
   elements.expiredCount.textContent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) < 0).length;
   elements.todayCount.textContent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) === 0).length;
   elements.soonCount.textContent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) >= 1 && daysUntil(effectiveExpiryDate(item)) <= 3).length;
-  renderToday(active); renderInventory(); renderGroceries(); renderHistory();
+  renderToday(active); renderInventory(); renderGroceries(); renderRecentTrips(); renderHistory();
 }
 
 function renderRecentFoods() {
@@ -317,7 +359,7 @@ function openGroceryDialog(item = null) {
 }
 
 async function refresh() {
-  [items, groceryItems, foodTemplates] = await Promise.all([getItems(db), getGroceryItems(db), getFoodTemplates(db)]);
+  [items, groceryItems, foodTemplates, shoppingTrips] = await Promise.all([getItems(db), getGroceryItems(db), getFoodTemplates(db), getShoppingTrips(db)]);
   render();
 }
 
@@ -581,23 +623,23 @@ async function handleGroceryClick(event) {
 async function handleGroceryToggle(event) {
   const checkbox = event.target.closest(".grocery-toggle"); if (!checkbox) return;
   const item = groceryItems.find((entry) => entry.id === checkbox.closest("[data-grocery-id]")?.dataset.groceryId); if (!item) return;
-  await saveGroceryItem(db, { ...item, have: checkbox.checked, suggestedQuantity: checkbox.checked ? "" : item.suggestedQuantity, updatedAt: new Date().toISOString() });
+  await saveGroceryItem(db, { ...item, have: checkbox.checked, updatedAt: new Date().toISOString() });
   await refresh(); showToast(checkbox.checked ? `${item.name} marked as already have` : `${item.name} added to shopping list`);
 }
 
 async function handleShoppingToggle(event) {
   const checkbox = event.target.closest(".shopping-toggle"); if (!checkbox) return;
   const item = groceryItems.find((entry) => entry.id === checkbox.closest("[data-shopping-id]")?.dataset.shoppingId); if (!item) return;
-  await saveGroceryItem(db, { ...item, have: checkbox.checked, suggestedQuantity: checkbox.checked ? "" : item.suggestedQuantity, updatedAt: new Date().toISOString() });
+  await saveGroceryItem(db, { ...item, have: checkbox.checked, updatedAt: new Date().toISOString() });
   groceryItems = await getGroceryItems(db); renderGroceries(); renderShoppingMode();
 }
 
 function downloadBackup() {
-  const payload = { app: "FreshCheck", version: 5, exportedAt: new Date().toISOString(), items, groceryItems, foodTemplates };
+  const payload = { app: "FreshCheck", version: 6, exportedAt: new Date().toISOString(), items, groceryItems, foodTemplates, shoppingTrips };
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
   const link = document.createElement("a"); link.href = url; link.download = `freshcheck-backup-${todayISO()}.json`;
   document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  elements.dataStatus.textContent = `${items.length} food records, ${groceryItems.length} grocery items, and ${foodTemplates.length} favourites exported.`;
+  elements.dataStatus.textContent = `${items.length} food records, ${groceryItems.length} grocery items, ${foodTemplates.length} favourites, and ${shoppingTrips.length} trips exported.`;
 }
 
 async function importBackup(file) {
@@ -608,12 +650,14 @@ async function importBackup(file) {
     if (normalized.some((item) => validateItem(item))) throw new Error("The backup contains an invalid food item.");
     const restoredGroceries = Array.isArray(payload.groceryItems) ? payload.groceryItems.map(normalizeGroceryItem) : null;
     const restoredTemplates = Array.isArray(payload.foodTemplates) ? payload.foodTemplates.map(normalizeFoodTemplate) : null;
+    const restoredTrips = Array.isArray(payload.shoppingTrips) ? payload.shoppingTrips.map(normalizeShoppingTrip) : null;
     if (restoredGroceries?.some((item) => validateGroceryItem(item))) throw new Error("The backup contains an invalid grocery item.");
     const groceryMessage = restoredGroceries ? ` and ${restoredGroceries.length} grocery items` : "";
     if (!confirm(`Replace this device's inventory with ${normalized.length} food records${groceryMessage}?`)) return;
     await replaceItems(db, normalized);
     if (restoredGroceries) await replaceGroceryItems(db, restoredGroceries);
     if (restoredTemplates) await replaceFoodTemplates(db, restoredTemplates);
+    if (restoredTrips) await replaceShoppingTrips(db, restoredTrips);
     await refresh(); elements.dataStatus.textContent = "Backup restored successfully.";
   } catch (error) { elements.dataStatus.textContent = error.message || "The backup could not be restored."; }
 }
@@ -660,10 +704,17 @@ function bindEvents() {
   $("#addGroceryButton").addEventListener("click", () => openGroceryDialog());
   $("#startShoppingButton").addEventListener("click", openShoppingMode);
   $("#closeShoppingButton").addEventListener("click", closeShoppingMode);
-  $("#finishShoppingButton").addEventListener("click", closeShoppingMode);
+  $("#finishShoppingButton").addEventListener("click", finishShoppingTrip);
   elements.shoppingDialog.addEventListener("cancel", (event) => { event.preventDefault(); closeShoppingMode(); });
   elements.shoppingStore.addEventListener("change", () => beginStoreTrip(elements.shoppingStore.value));
   elements.shoppingList.addEventListener("change", handleShoppingToggle);
+  elements.recentTrips.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-buy-again-id]"); if (!button) return;
+    const trip = shoppingTrips.find((entry) => entry.id === button.dataset.buyAgainId); if (trip) openBuyAgain(trip);
+  });
+  $("#closeBuyAgainButton").addEventListener("click", () => elements.buyAgainDialog.close());
+  $("#cancelBuyAgainButton").addEventListener("click", () => elements.buyAgainDialog.close());
+  $("#confirmBuyAgainButton").addEventListener("click", confirmBuyAgain);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && elements.shoppingDialog.open && !wakeLock) requestWakeLock();
   });

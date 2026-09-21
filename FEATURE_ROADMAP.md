@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — G14: Buy again**
-- Completed: 8 / 20
+- **In progress — E1: Expiry calendar**
+- Completed: 9 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -43,9 +43,9 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **G6 — Suggested quantities** *(Complete — 2026-09-20)*
   - Suggest a shopping quantity from the configured target and current active stock.
   - Keep the suggested quantity editable.
-- [ ] **G14 — Buy again** *(In progress)*
+- [x] **G14 — Buy again** *(Complete — 2026-09-20)*
   - Save completed shopping trips and restore all or selected items to To buy.
-- [ ] **E1 — Expiry calendar** *(Pending)*
+- [ ] **E1 — Expiry calendar** *(In progress)*
   - Add a weekly/monthly calendar-style view of active expiry dates.
 - [ ] **E2 — Use-first score** *(Pending)*
   - Rank active food using expiry, opened status, quantity, and storage.

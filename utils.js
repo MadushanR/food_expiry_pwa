@@ -235,6 +235,21 @@ export function shoppingProgress(groceries = [], itemIds = []) {
   return { bought, total: selected.length, remaining: selected.length - bought };
 }
 
+export function normalizeShoppingTrip(raw = {}) {
+  const completedAt = raw.completedAt || new Date().toISOString();
+  return {
+    id: String(raw.id || makeId()),
+    store: String(raw.store || "Other"),
+    completedAt,
+    items: Array.isArray(raw.items) ? raw.items.map((item) => ({
+      groceryItemId: item.groceryItemId ? String(item.groceryItemId) : null,
+      name: String(item.name || "").trim(),
+      quantity: String(item.quantity || "").trim(),
+      store: String(item.store || raw.store || "Other"),
+    })).filter((item) => item.name) : [],
+  };
+}
+
 export function normalizeGroceryItem(raw = {}) {
   const now = new Date().toISOString();
   return {
