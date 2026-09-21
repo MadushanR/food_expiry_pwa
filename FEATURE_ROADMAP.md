@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — E1: Expiry calendar**
-- Completed: 9 / 20
+- **In progress — E2: Use-first score**
+- Completed: 10 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -45,9 +45,9 @@ This file is the hand-off source of truth for the current feature release. Work 
   - Keep the suggested quantity editable.
 - [x] **G14 — Buy again** *(Complete — 2026-09-20)*
   - Save completed shopping trips and restore all or selected items to To buy.
-- [ ] **E1 — Expiry calendar** *(In progress)*
+- [x] **E1 — Expiry calendar** *(Complete — 2026-09-20)*
   - Add a weekly/monthly calendar-style view of active expiry dates.
-- [ ] **E2 — Use-first score** *(Pending)*
+- [ ] **E2 — Use-first score** *(In progress)*
   - Rank active food using expiry, opened status, quantity, and storage.
   - Show a short, understandable reason for the ranking.
 - [ ] **E3 — Freeze-by suggestions** *(Pending)*

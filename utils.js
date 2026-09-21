@@ -250,6 +250,12 @@ export function normalizeShoppingTrip(raw = {}) {
   };
 }
 
+export function calendarGridDates(year, monthIndex) {
+  const first = new Date(year, monthIndex, 1);
+  const start = new Date(year, monthIndex, 1 - first.getDay());
+  return Array.from({ length: 42 }, (_, index) => todayISO(new Date(start.getFullYear(), start.getMonth(), start.getDate() + index)));
+}
+
 export function normalizeGroceryItem(raw = {}) {
   const now = new Date().toISOString();
   return {

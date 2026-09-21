@@ -172,6 +172,16 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .buy-again-list { max-height: 48dvh; overflow-y: auto; margin-bottom: 18px; }
 .buy-again-row { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 52px; }
 .buy-again-row input { width: 24px; height: 24px; min-height: 24px; margin: 0; accent-color: var(--accent); }
+.calendar-dialog { width: min(720px, calc(100% - 16px)); }
+.calendar-nav { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; gap: 10px; margin: 20px 0 12px; text-align: center; }
+.calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.calendar-weekdays { margin-bottom: 5px; color: var(--muted); font-size: .68rem; font-weight: 750; text-align: center; }
+.calendar-day { min-height: 78px; padding: 7px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); overflow: hidden; }
+.calendar-day.outside { opacity: .45; }
+.calendar-day.today { border-color: var(--accent); }
+.calendar-date-number { display: block; margin-bottom: 5px; color: var(--muted); font-size: .72rem; font-weight: 800; }
+.calendar-food { display: block; margin-top: 3px; overflow: hidden; color: var(--text); font-size: .66rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-food.urgent { color: var(--danger); }
 .toast, .update-banner {
   position: fixed; z-index: 20; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom)); transform: translateX(-50%);
   width: min(440px, calc(100% - 28px)); min-height: 52px; padding: 10px 12px 10px 16px;

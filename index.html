@@ -37,7 +37,7 @@
       </section>
 
       <section class="app-view" id="inventoryView" data-view="inventory" aria-labelledby="inventoryHeading" hidden>
-        <div class="view-heading"><div><p class="eyebrow">Everything active</p><h2 id="inventoryHeading">Inventory</h2></div><button class="primary-button add-button" type="button">Add food</button></div>
+        <div class="view-heading"><div><p class="eyebrow">Everything active</p><h2 id="inventoryHeading">Inventory</h2></div><div class="heading-actions"><button class="secondary-button" id="calendarButton" type="button">Calendar</button><button class="primary-button add-button" type="button">Add food</button></div></div>
         <div class="toolbar">
           <label class="search-field"><span class="sr-only">Search food</span><input id="searchInput" type="search" placeholder="Search food" autocomplete="off"></label>
           <label><span class="sr-only">Filter inventory</span><select id="filterSelect"><option value="active">All active</option><option value="expired">Expired</option><option value="today">Today</option><option value="soon">Next 3 days</option><option value="later">Later</option><option value="Fridge">Fridge</option><option value="Freezer">Freezer</option><option value="Pantry">Pantry</option></select></label>
@@ -166,6 +166,13 @@
     <p class="dialog-copy">Choose which items should return to your To buy list.</p>
     <div id="buyAgainList" class="buy-again-list"></div>
     <div class="dialog-actions"><button class="secondary-button" id="cancelBuyAgainButton" type="button">Cancel</button><button class="primary-button" id="confirmBuyAgainButton" type="button">Add selected</button></div>
+  </dialog>
+
+  <dialog id="calendarDialog" class="app-dialog calendar-dialog">
+    <div class="dialog-header"><div><p class="eyebrow">Effective use-by dates</p><h2 id="calendarTitle">Expiry calendar</h2></div><button class="icon-button close-button" id="closeCalendarButton" type="button" aria-label="Close calendar">×</button></div>
+    <div class="calendar-nav"><button class="secondary-button" id="previousMonthButton" type="button" aria-label="Previous month">‹</button><strong id="calendarMonthLabel"></strong><button class="secondary-button" id="nextMonthButton" type="button" aria-label="Next month">›</button></div>
+    <div class="calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+    <div id="calendarGrid" class="calendar-grid"></div>
   </dialog>
 
   <dialog id="dataDialog" class="app-dialog compact-dialog">

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
-  activeProductQuantity, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
+  activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
   relativeExpiry, shoppingProgress, suggestedRestockQuantity, validateGroceryItem, validateItem
 } from "./utils.js";
@@ -179,6 +179,13 @@ test("completed shopping trips preserve reusable item snapshots", () => {
   ] });
   assert.equal(trip.items.length, 1);
   assert.deepEqual(trip.items[0], { groceryItemId: "milk", name: "Milk", quantity: "2 cartons", store: "Walmart" });
+});
+
+test("calendar grids contain six complete Sunday-to-Saturday weeks", () => {
+  const dates = calendarGridDates(2026, 8);
+  assert.equal(dates.length, 42);
+  assert.equal(dates[0], "2026-08-30");
+  assert.equal(dates[41], "2026-10-10");
 });
 
 test("partial outcomes retain the remainder and create a separate history record", () => {

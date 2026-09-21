@@ -1,5 +1,5 @@
 import {
-  activeProductQuantity, addDaysISO, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
+  activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
   parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestedRestockQuantity, todayISO,
   validateGroceryItem, validateItem
@@ -36,6 +36,7 @@ const elements = {
   shoppingProgressText: $("#shoppingProgressText"), shoppingProgressBar: $("#shoppingProgressBar"), shoppingWakeStatus: $("#shoppingWakeStatus"),
   recentTripsSection: $("#recentTripsSection"), recentTrips: $("#recentTrips"), buyAgainDialog: $("#buyAgainDialog"),
   buyAgainTitle: $("#buyAgainTitle"), buyAgainList: $("#buyAgainList"),
+  calendarDialog: $("#calendarDialog"), calendarTitle: $("#calendarTitle"), calendarMonthLabel: $("#calendarMonthLabel"), calendarGrid: $("#calendarGrid"),
   dataDialog: $("#dataDialog"), dataStatus: $("#dataStatus"), themeSelect: $("#themeSelect"),
   toast: $("#toast"), toastMessage: $("#toastMessage"), undoButton: $("#undoButton"),
 };
@@ -54,6 +55,7 @@ let barcodeLookupController = null;
 let shoppingItemIds = [];
 let wakeLock = null;
 let selectedTripId = null;
+let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
 function escapeHTML(value) {
   const node = document.createElement("span");
@@ -225,6 +227,20 @@ function renderRecentTrips() {
   const recent = [...shoppingTrips].sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 5);
   elements.recentTripsSection.hidden = !recent.length;
   elements.recentTrips.innerHTML = recent.map((trip) => `<article class="trip-card"><div><strong>${escapeHTML(trip.store)}</strong><p>${escapeHTML(formatCompleted(trip.completedAt))} · ${trip.items.length} item${trip.items.length === 1 ? "" : "s"}</p></div><button class="secondary-button" type="button" data-buy-again-id="${escapeHTML(trip.id)}">Buy again</button></article>`).join("");
+}
+
+function renderCalendar() {
+  const year = calendarMonth.getFullYear(); const month = calendarMonth.getMonth();
+  elements.calendarMonthLabel.textContent = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(calendarMonth);
+  elements.calendarGrid.innerHTML = calendarGridDates(year, month).map((date) => {
+    const dayItems = items.filter((item) => item.status === "active" && effectiveExpiryDate(item) === date);
+    const parsed = date.split("-").map(Number); const outside = parsed[1] - 1 !== month; const today = date === todayISO();
+    return `<div class="calendar-day${outside ? " outside" : ""}${today ? " today" : ""}"><span class="calendar-date-number">${parsed[2]}</span>${dayItems.slice(0, 3).map((item) => `<span class="calendar-food ${daysUntil(date) <= 0 ? "urgent" : ""}" title="${escapeHTML(item.name)}">${escapeHTML(item.name)}</span>`).join("")}${dayItems.length > 3 ? `<span class="calendar-food">+${dayItems.length - 3} more</span>` : ""}</div>`;
+  }).join("");
+}
+
+function openCalendar() {
+  calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); renderCalendar(); elements.calendarDialog.showModal();
 }
 
 function renderShoppingMode() {
@@ -702,6 +718,10 @@ function bindEvents() {
   $("#closeOutcomeButton").addEventListener("click", () => elements.outcomeDialog.close());
   document.querySelectorAll("[data-outcome]").forEach((button) => button.addEventListener("click", () => recordOutcome(button.dataset.outcome)));
   $("#addGroceryButton").addEventListener("click", () => openGroceryDialog());
+  $("#calendarButton").addEventListener("click", openCalendar);
+  $("#closeCalendarButton").addEventListener("click", () => elements.calendarDialog.close());
+  $("#previousMonthButton").addEventListener("click", () => { calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1); renderCalendar(); });
+  $("#nextMonthButton").addEventListener("click", () => { calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1); renderCalendar(); });
   $("#startShoppingButton").addEventListener("click", openShoppingMode);
   $("#closeShoppingButton").addEventListener("click", closeShoppingMode);
   $("#finishShoppingButton").addEventListener("click", finishShoppingTrip);
