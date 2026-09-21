@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — E2: Use-first score**
-- Completed: 10 / 20
+- **In progress — E3: Freeze-by suggestions**
+- Completed: 11 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -47,10 +47,10 @@ This file is the hand-off source of truth for the current feature release. Work 
   - Save completed shopping trips and restore all or selected items to To buy.
 - [x] **E1 — Expiry calendar** *(Complete — 2026-09-20)*
   - Add a weekly/monthly calendar-style view of active expiry dates.
-- [ ] **E2 — Use-first score** *(In progress)*
+- [x] **E2 — Use-first score** *(Complete — 2026-09-20)*
   - Rank active food using expiry, opened status, quantity, and storage.
   - Show a short, understandable reason for the ranking.
-- [ ] **E3 — Freeze-by suggestions** *(Pending)*
+- [ ] **E3 — Freeze-by suggestions** *(In progress)*
   - Suggest a freeze-by date for suitable foods while keeping it editable.
 - [ ] **E4 — Thaw tracking** *(Pending)*
   - Record when frozen food is returned to active inventory and suggest a new use-by date.

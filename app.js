@@ -1,7 +1,7 @@
 import {
   activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestedRestockQuantity, todayISO,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, suggestedRestockQuantity, todayISO, useFirstPriority,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -109,6 +109,7 @@ function inventoryItems() {
   }).sort((a, b) => {
     if (elements.sort.value === "name") return a.name.localeCompare(b.name);
     if (elements.sort.value === "recent") return b.createdAt.localeCompare(a.createdAt);
+    if (elements.sort.value === "use-first") return useFirstPriority(b).score - useFirstPriority(a).score || effectiveExpiryDate(a).localeCompare(effectiveExpiryDate(b));
     return effectiveExpiryDate(a).localeCompare(effectiveExpiryDate(b)) || a.name.localeCompare(b.name);
   });
 }
@@ -120,12 +121,14 @@ function activeItemMarkup(item) {
   const relativeLabel = adjustedAfterOpening ? relative.replace(/^Expires/, "Use").replace(/^Expired/, "Use-by passed") : relative;
   const printedExpiry = adjustedAfterOpening ? `<span>Label expiry ${escapeHTML(formatDate(item.expiryDate, { month: "short", day: "numeric" }))}</span>` : "";
   const lowStock = isLowStock(item, items) ? '<span class="low-stock-label">Low stock</span>' : "";
+  const priority = useFirstPriority(item);
   const state = expiryState(useBy);
   const quantity = item.quantity == null ? "" : `${item.quantity}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}`;
   return `<article class="food-item ${state}" data-id="${escapeHTML(item.id)}">
     <div><p class="food-name">${escapeHTML(item.name)}</p>
       <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeLabel)}</span><span>${adjustedAfterOpening ? "Use by " : ""}${escapeHTML(formatDate(useBy))}</span>${printedExpiry}${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}${lowStock}</div>
       ${item.notes ? `<p class="food-notes">${escapeHTML(item.notes)}</p>` : ""}
+      <p class="use-first-reason">Use first: ${escapeHTML(priority.reason)}</p>
     </div>
     <div class="item-menu"><button class="item-action primary-action" type="button" data-action="act" aria-label="Record an outcome for ${escapeHTML(item.name)}">Act</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action" type="button" data-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
   </article>`;
@@ -154,7 +157,7 @@ function emptyMarkup(title, message, showAdd = false) {
 }
 
 function renderToday(active) {
-  const urgent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) <= 3).sort((a, b) => effectiveExpiryDate(a).localeCompare(effectiveExpiryDate(b)));
+  const urgent = active.filter((item) => daysUntil(effectiveExpiryDate(item)) <= 3).sort((a, b) => useFirstPriority(b).score - useFirstPriority(a).score);
   if (!urgent.length) {
     elements.todayGroups.innerHTML = emptyMarkup("Nothing urgent", active.length ? "Everything is more than three days away." : "Add your first food item to start tracking.", !active.length);
     return;

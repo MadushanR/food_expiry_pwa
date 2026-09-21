@@ -295,6 +295,19 @@ export function effectiveExpiryDate(item) {
   return openedUseBy < item.expiryDate ? openedUseBy : item.expiryDate;
 }
 
+export function useFirstPriority(item, now = new Date()) {
+  const days = daysUntil(effectiveExpiryDate(item), now);
+  let score = days < 0 ? 120 + Math.min(20, Math.abs(days)) : days === 0 ? 110 : days <= 3 ? 95 - days * 5 : days <= 7 ? 65 - days : Math.max(0, 30 - days);
+  const reasons = [relativeExpiry(effectiveExpiryDate(item), now).toLowerCase()];
+  if (item.openedDate) { score += 15; reasons.push("already opened"); }
+  const quantity = item.quantity == null ? null : Number(item.quantity);
+  if (quantity != null && quantity > 1) { score += Math.min(10, Math.ceil(quantity)); reasons.push(`${quantity}${item.unit ? ` ${item.unit}` : ""} remaining`); }
+  const storagePoints = { Counter: 12, Fridge: 7, Pantry: 3, Freezer: 0, Other: 2 };
+  score += storagePoints[item.location] ?? 2;
+  if (item.location === "Counter" || item.location === "Fridge") reasons.push(`kept in ${item.location.toLowerCase()}`);
+  return { score, reason: reasons.join(" · ") };
+}
+
 export function addDaysISO(days, date = new Date()) {
   return todayISO(new Date(date.getFullYear(), date.getMonth(), date.getDate() + Number(days)));
 }

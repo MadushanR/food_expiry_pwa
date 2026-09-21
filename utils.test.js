@@ -4,7 +4,7 @@ import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
-  relativeExpiry, shoppingProgress, suggestedRestockQuantity, validateGroceryItem, validateItem
+  relativeExpiry, shoppingProgress, suggestedRestockQuantity, useFirstPriority, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -186,6 +186,17 @@ test("calendar grids contain six complete Sunday-to-Saturday weeks", () => {
   assert.equal(dates.length, 42);
   assert.equal(dates[0], "2026-08-30");
   assert.equal(dates[41], "2026-10-10");
+});
+
+test("use-first priority explains and ranks expiry, opening, quantity, and storage", () => {
+  const urgent = normalizeItem({ name: "Milk", expiry: "2026-09-21", openedDate: "2026-09-20", quantity: 3, unit: "cartons", location: "Fridge" });
+  const later = normalizeItem({ name: "Rice", expiry: "2026-10-20", quantity: 1, location: "Pantry" });
+  const priority = useFirstPriority(urgent, now);
+  assert.ok(priority.score > useFirstPriority(later, now).score);
+  assert.match(priority.reason, /expires tomorrow/);
+  assert.match(priority.reason, /already opened/);
+  assert.match(priority.reason, /3 cartons remaining/);
+  assert.match(priority.reason, /kept in fridge/);
 });
 
 test("partial outcomes retain the remainder and create a separate history record", () => {

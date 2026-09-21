@@ -80,6 +80,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .food-item.expired .expiry-label, .food-item.wasted .outcome-label { color: var(--danger); }
 .food-item.soon .expiry-label, .food-item.frozen .outcome-label { color: var(--warning); }
 .food-notes { margin-top: 7px; color: var(--muted); font-size: .82rem; }
+.use-first-reason { margin-top: 7px; color: var(--brown); font-size: .76rem; font-weight: 700; }
 .item-menu { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .item-action {
   min-width: 44px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px;
