@@ -72,7 +72,11 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .food-item {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center;
   padding: 15px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface);
+  touch-action: pan-y;
 }
+.gesture-hint { margin: -14px 2px 18px; color: var(--muted); font-size: .76rem; }
+.food-item.swiped-left { transform: translateX(-10px); }
+.food-item.swiped-right { transform: translateX(10px); }
 .food-name { margin-bottom: 4px; font-weight: 750; overflow-wrap: anywhere; }
 .food-meta { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: .8rem; }
 .expiry-label, .outcome-label { color: var(--accent); font-weight: 700; }

@@ -87,6 +87,13 @@ export function unknownProductDraft(raw) {
   return { barcode: parsed.barcode, expiryDate: parsed.expiryDate || "" };
 }
 
+export function swipeDirection(startX, startY, endX, endY, threshold = 70) {
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  if (Math.abs(deltaX) < threshold || Math.abs(deltaX) < Math.abs(deltaY) * 1.4) return "";
+  return deltaX < 0 ? "left" : "right";
+}
+
 export function normalizeNutrition(raw = {}) {
   const numberOrNull = (value) => value === "" || value == null || !Number.isFinite(Number(value)) ? null : Number(value);
   return {

@@ -1,7 +1,7 @@
 import {
   activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, hasNutrition, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, todayISO, unknownProductDraft, useFirstPriority, useItUpSuggestions,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, swipeDirection, todayISO, unknownProductDraft, useFirstPriority, useItUpSuggestions,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -63,6 +63,7 @@ let selectedTripId = null;
 let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let pendingNutrition = null;
 let rapidScannedBarcodes = new Set();
+let swipeStart = null;
 
 function escapeHTML(value) {
   const node = document.createElement("span");
@@ -737,6 +738,32 @@ async function handleGroceryToggle(event) {
   await refresh(); showToast(checkbox.checked ? `${item.name} marked as already have` : `${item.name} added to shopping list`);
 }
 
+function handleSwipeStart(event) {
+  if (event.pointerType !== "touch" || event.target.closest("button, a, input, select, textarea, summary")) return;
+  const card = event.target.closest(".food-item[data-id]");
+  if (!card) return;
+  card.setPointerCapture?.(event.pointerId);
+  swipeStart = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, id: card.dataset.id, card };
+}
+
+function handleSwipeEnd(event) {
+  if (!swipeStart || event.pointerId !== swipeStart.pointerId) return;
+  const gesture = swipeDirection(swipeStart.x, swipeStart.y, event.clientX, event.clientY);
+  const { id, card } = swipeStart; swipeStart = null;
+  if (!gesture) return;
+  const item = items.find((entry) => entry.id === id);
+  if (!item) return;
+  card.classList.add(`swiped-${gesture}`);
+  setTimeout(() => card.classList.remove(`swiped-${gesture}`), 180);
+  if (item.status === "active") {
+    if (gesture === "left") openOutcome(item);
+    else openItemDialog(item);
+  } else if (gesture === "left") {
+    if (item.status === "frozen") openThaw(item);
+    else handleItemAction({ target: card.querySelector('[data-action="restore"]') });
+  }
+}
+
 async function handleShoppingToggle(event) {
   const checkbox = event.target.closest(".shopping-toggle"); if (!checkbox) return;
   const item = groceryItems.find((entry) => entry.id === checkbox.closest("[data-shopping-id]")?.dataset.shoppingId); if (!item) return;
@@ -793,6 +820,11 @@ function bindEvents() {
   $("#unknownProductContinue").addEventListener("click", () => elements.itemName.focus());
   elements.itemForm.addEventListener("submit", saveForm);
   [elements.todayGroups, elements.inventoryGroups, elements.historyList].forEach((container) => container.addEventListener("click", handleItemAction));
+  [elements.todayGroups, elements.inventoryGroups, elements.historyList].forEach((container) => {
+    container.addEventListener("pointerdown", handleSwipeStart);
+    container.addEventListener("pointerup", handleSwipeEnd);
+    container.addEventListener("pointercancel", () => { swipeStart = null; });
+  });
   [elements.search, elements.filter, elements.sort].forEach((element) => element.addEventListener("input", renderInventory));
   elements.historyFilter.addEventListener("input", renderHistory);
   document.querySelectorAll("[data-days]").forEach((button) => button.addEventListener("click", () => { elements.expiryDate.value = addDaysISO(button.dataset.days); }));
