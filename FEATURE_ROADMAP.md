@@ -12,7 +12,7 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **Feature implementation and release verification complete — PR preparation in progress**
+- **Complete — pull request #6 opened**
 - Completed: 20 / 20
 - Last updated: 2026-09-20
 
@@ -80,4 +80,4 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] Offline app-shell caching includes every new local module or asset.
 - [x] Automated tests and syntax checks pass.
 - [x] Phone-sized light and dark layouts are visually checked.
-- [ ] The branch is pushed and a pull request is opened with test evidence.
+- [x] The branch is pushed and pull request #6 is open with test evidence.
