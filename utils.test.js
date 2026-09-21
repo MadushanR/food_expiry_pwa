@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  addDaysISO, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
+  addDaysISO, createOutcomeRecords, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
   hasActiveGroceryMatch, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates,
   relativeExpiry, shoppingProgress, validateGroceryItem, validateItem
@@ -135,4 +135,27 @@ test("shopping progress keeps purchased items in the active trip total", () => {
     normalizeGroceryItem({ id: "bread", name: "Bread", have: true }),
   ];
   assert.deepEqual(shoppingProgress(groceries, ["milk", "eggs"]), { bought: 1, total: 2, remaining: 1 });
+});
+
+test("partial outcomes retain the remainder and create a separate history record", () => {
+  const item = normalizeItem({ id: "eggs", name: "Eggs", expiry: "2026-09-24", quantity: 12, unit: "eggs" });
+  const result = createOutcomeRecords(item, "used", 2, "2026-09-20T20:00:00.000Z", "used-eggs");
+  assert.equal(result.partial, true);
+  assert.equal(result.remaining.id, "eggs");
+  assert.equal(result.remaining.quantity, 10);
+  assert.equal(result.remaining.status, "active");
+  assert.equal(result.completed.id, "used-eggs");
+  assert.equal(result.completed.quantity, 2);
+  assert.equal(result.completed.status, "used");
+  assert.equal(result.completed.sourceItemId, "eggs");
+});
+
+test("outcomes reject invalid partial quantities and complete the full amount", () => {
+  const item = normalizeItem({ id: "milk", name: "Milk", expiry: "2026-09-24", quantity: 2, unit: "cartons" });
+  assert.throws(() => createOutcomeRecords(item, "wasted", 3), /between 0 and 2/);
+  const result = createOutcomeRecords(item, "wasted", 2, "2026-09-20T20:00:00.000Z");
+  assert.equal(result.partial, false);
+  assert.equal(result.remaining, null);
+  assert.equal(result.completed.id, "milk");
+  assert.equal(result.completed.status, "wasted");
 });

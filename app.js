@@ -1,5 +1,5 @@
 import {
-  addDaysISO, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
+  addDaysISO, createOutcomeRecords, daysUntil, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
   groupActiveItems, hasActiveGroceryMatch, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, todayISO,
   validateGroceryItem, validateItem
@@ -23,7 +23,8 @@ const elements = {
   favoriteTemplateId: $("#favoriteTemplateId"), saveFavorite: $("#saveFavorite"),
   favoriteFoods: $("#favoriteFoods"), favoriteFoodButtons: $("#favoriteFoodButtons"),
   recentFoods: $("#recentFoods"), recentFoodButtons: $("#recentFoodButtons"),
-  outcomeDialog: $("#outcomeDialog"), outcomeTitle: $("#outcomeTitle"),
+  outcomeDialog: $("#outcomeDialog"), outcomeTitle: $("#outcomeTitle"), outcomeQuantityField: $("#outcomeQuantityField"),
+  outcomeQuantity: $("#outcomeQuantity"), outcomeUnit: $("#outcomeUnit"), outcomeError: $("#outcomeError"),
   groceryList: $("#groceryList"), grocerySearch: $("#grocerySearch"), groceryStoreFilter: $("#groceryStoreFilter"),
   groceryStatusFilter: $("#groceryStatusFilter"), toBuyCount: $("#toBuyCount"),
   walmartNeedCount: $("#walmartNeedCount"), dollaramaNeedCount: $("#dollaramaNeedCount"),
@@ -41,7 +42,7 @@ let db;
 let items = [];
 let groceryItems = [];
 let foodTemplates = [];
-let undoItem = null;
+let undoAction = null;
 let actionItemId = null;
 let toastTimer = null;
 let scannerControls = null;
@@ -120,8 +121,9 @@ function activeItemMarkup(item) {
 
 function historyItemMarkup(item) {
   const label = item.status[0].toUpperCase() + item.status.slice(1);
+  const quantity = item.quantity == null ? "" : `<span>${escapeHTML(item.quantity)}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}</span>`;
   return `<article class="food-item ${item.status}" data-id="${escapeHTML(item.id)}">
-    <div><p class="food-name">${escapeHTML(item.name)}</p><div class="food-meta"><span class="outcome-label">${label}</span><span>${escapeHTML(formatCompleted(item.completedAt))}</span><span>${escapeHTML(item.location)}</span></div></div>
+    <div><p class="food-name">${escapeHTML(item.name)}</p><div class="food-meta"><span class="outcome-label">${label}</span><span>${escapeHTML(formatCompleted(item.completedAt))}</span><span>${escapeHTML(item.location)}</span>${quantity}</div></div>
     <div class="item-menu"><button class="item-action primary-action" type="button" data-action="restore" aria-label="Restore ${escapeHTML(item.name)} to inventory">Restore</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)} permanently">Delete</button></div>
   </article>`;
 }
@@ -306,10 +308,16 @@ async function refresh() {
   render();
 }
 
-function showToast(message, item = null) {
-  clearTimeout(toastTimer); undoItem = item; elements.toastMessage.textContent = message;
-  elements.undoButton.hidden = !item; elements.toast.hidden = false;
-  toastTimer = setTimeout(() => { elements.toast.hidden = true; undoItem = null; }, 6500);
+function showToast(message, undo = null) {
+  clearTimeout(toastTimer);
+  undoAction = typeof undo === "function" ? undo : undo ? async () => {
+    await saveItem(db, undo);
+    const nextItems = items.map((entry) => entry.id === undo.id ? undo : entry).concat(items.some((entry) => entry.id === undo.id) ? [] : [undo]);
+    await syncGroceryForItem(undo, nextItems);
+  } : null;
+  elements.toastMessage.textContent = message;
+  elements.undoButton.hidden = !undoAction; elements.toast.hidden = false;
+  toastTimer = setTimeout(() => { elements.toast.hidden = true; undoAction = null; }, 6500);
 }
 
 function stopScanner() {
@@ -425,7 +433,11 @@ async function syncGroceryForItem(item, currentItems = items) {
 }
 
 function openOutcome(item) {
-  actionItemId = item.id; elements.outcomeTitle.textContent = item.name; elements.outcomeDialog.showModal();
+  actionItemId = item.id; elements.outcomeTitle.textContent = item.name; elements.outcomeError.textContent = "";
+  elements.outcomeQuantityField.hidden = item.quantity == null;
+  elements.outcomeQuantity.value = item.quantity ?? ""; elements.outcomeQuantity.max = item.quantity ?? "";
+  elements.outcomeUnit.textContent = item.unit ? `in ${item.unit}` : "";
+  elements.outcomeDialog.showModal();
 }
 
 async function handleItemAction(event) {
@@ -456,9 +468,22 @@ async function handleItemAction(event) {
 
 async function recordOutcome(status) {
   const item = items.find((entry) => entry.id === actionItemId); if (!item) return;
-  const completed = { ...item, status, completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-  const nextItems = items.map((entry) => entry.id === item.id ? completed : entry);
-  await saveItem(db, completed); await syncGroceryForItem(completed, nextItems);
+  let outcome;
+  try { outcome = createOutcomeRecords(item, status, elements.outcomeQuantityField.hidden ? null : elements.outcomeQuantity.value); }
+  catch (error) { elements.outcomeError.textContent = error.message; return; }
+  if (outcome.partial) {
+    await saveItem(db, outcome.remaining); await saveItem(db, outcome.completed);
+    const nextItems = items.map((entry) => entry.id === item.id ? outcome.remaining : entry).concat(outcome.completed);
+    await syncGroceryForItem(outcome.completed, nextItems);
+    elements.outcomeDialog.close(); actionItemId = null; await refresh();
+    const amount = `${outcome.completed.quantity}${outcome.completed.unit ? ` ${outcome.completed.unit}` : ""}`;
+    showToast(`${amount} of ${item.name} marked ${status}`, async () => {
+      await saveItem(db, item); await removeItem(db, outcome.completed.id); await syncGroceryForItem(item, items);
+    });
+    return;
+  }
+  const nextItems = items.map((entry) => entry.id === item.id ? outcome.completed : entry);
+  await saveItem(db, outcome.completed); await syncGroceryForItem(outcome.completed, nextItems);
   elements.outcomeDialog.close(); actionItemId = null; await refresh(); showToast(`${item.name} marked ${status}`, item);
 }
 
@@ -612,7 +637,7 @@ function bindEvents() {
   $("#importButton").addEventListener("click", () => $("#importInput").click());
   $("#importInput").addEventListener("change", (event) => event.target.files[0] && importBackup(event.target.files[0]));
   elements.undoButton.addEventListener("click", async () => {
-    if (!undoItem) return; await saveItem(db, undoItem); await syncGroceryForItem(undoItem, items.map((entry) => entry.id === undoItem.id ? undoItem : entry).concat(items.some((entry) => entry.id === undoItem.id) ? [] : [undoItem])); await refresh(); elements.toast.hidden = true; undoItem = null;
+    if (!undoAction) return; const action = undoAction; undoAction = null; await action(); await refresh(); elements.toast.hidden = true;
   });
 }
 

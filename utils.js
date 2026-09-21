@@ -57,10 +57,35 @@ export function normalizeItem(raw = {}) {
     brand: String(raw.brand || "").trim(),
     groceryItemId: raw.groceryItemId ? String(raw.groceryItemId) : null,
     favoriteTemplateId: raw.favoriteTemplateId ? String(raw.favoriteTemplateId) : null,
+    sourceItemId: raw.sourceItemId ? String(raw.sourceItemId) : null,
     status: ["active", "used", "wasted", "frozen"].includes(raw.status) ? raw.status : "active",
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
     completedAt: raw.completedAt || null,
+  };
+}
+
+export function createOutcomeRecords(item, status, amount, completedAt = new Date().toISOString(), completedId = makeId()) {
+  if (!["used", "wasted", "frozen"].includes(status)) throw new Error("Choose a valid outcome.");
+  const quantity = item.quantity == null ? null : Number(item.quantity);
+  const selected = amount === "" || amount == null ? quantity : Number(amount);
+  if (quantity != null && (!Number.isFinite(selected) || selected <= 0 || selected > quantity)) {
+    throw new Error(`Enter an amount between 0 and ${quantity}.`);
+  }
+  if (quantity == null || selected === quantity) {
+    return {
+      remaining: null,
+      completed: normalizeItem({ ...item, status, completedAt, updatedAt: completedAt }),
+      partial: false,
+    };
+  }
+  return {
+    remaining: normalizeItem({ ...item, quantity: quantity - selected, status: "active", completedAt: null, updatedAt: completedAt }),
+    completed: normalizeItem({
+      ...item, id: completedId, sourceItemId: item.id, quantity: selected, status,
+      createdAt: completedAt, updatedAt: completedAt, completedAt,
+    }),
+    partial: true,
   };
 }
 

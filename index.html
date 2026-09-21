@@ -139,7 +139,9 @@
 
   <dialog id="outcomeDialog" class="app-dialog compact-dialog">
     <div class="dialog-header"><div><p class="eyebrow">Record outcome</p><h2 id="outcomeTitle">What happened?</h2></div><button class="icon-button close-button" id="closeOutcomeButton" type="button" aria-label="Close">×</button></div>
-    <p class="dialog-copy">This removes the item from your active inventory while keeping it in History.</p>
+    <p class="dialog-copy">Record the whole item, or enter a smaller amount to keep the remainder in inventory.</p>
+    <label class="field" id="outcomeQuantityField"><span>Amount <small id="outcomeUnit"></small></span><input id="outcomeQuantity" type="number" inputmode="decimal" min="0" step="any"></label>
+    <p id="outcomeError" class="form-error" role="alert"></p>
     <div class="outcome-actions"><button class="primary-button" type="button" data-outcome="used">Used</button><button class="secondary-button" type="button" data-outcome="wasted">Wasted</button><button class="secondary-button" type="button" data-outcome="frozen">Frozen</button></div>
   </dialog>
 

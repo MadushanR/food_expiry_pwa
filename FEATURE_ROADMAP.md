@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — I1: Partial quantities**
-- Completed: 2 / 20
+- **In progress — I2: Opened date**
+- Completed: 3 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -25,10 +25,10 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **G1 — Dedicated Shopping Mode** *(Complete — 2026-09-20)*
   - Provide a focused, large-control shopping view for one selected store.
   - Keep the screen awake when supported and show trip progress.
-- [ ] **I1 — Partial quantities** *(In progress)*
+- [x] **I1 — Partial quantities** *(Complete — 2026-09-20)*
   - Let users consume or waste part of an item without completing the whole record.
   - Record the partial outcome and retain the remaining quantity.
-- [ ] **I2 — Opened date** *(Pending)*
+- [ ] **I2 — Opened date** *(In progress)*
   - Store and edit an optional opened date separately from expiry.
   - Display opened status on active inventory.
 - [ ] **I3 — After-opening lifetime** *(Pending)*
