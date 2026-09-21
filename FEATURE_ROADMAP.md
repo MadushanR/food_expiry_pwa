@@ -12,8 +12,8 @@ This file is the hand-off source of truth for the current feature release. Work 
 
 ## Status
 
-- **In progress — I9: Low-stock levels**
-- Completed: 5 / 20
+- **In progress — G4: Low-stock replenishment**
+- Completed: 6 / 20
 - Last updated: 2026-09-20
 
 ## Ordered feature list
@@ -34,10 +34,10 @@ This file is the hand-off source of truth for the current feature release. Work 
 - [x] **I3 — After-opening lifetime** *(Complete — 2026-09-20)*
   - Store a reusable number of days after opening.
   - Calculate an effective use-by date without overwriting the printed expiry.
-- [ ] **I9 — Low-stock levels** *(In progress)*
+- [x] **I9 — Low-stock levels** *(Complete — 2026-09-20)*
   - Configure an optional minimum quantity per reusable product.
   - Mark the linked grocery as To buy when active stock reaches the threshold.
-- [ ] **G4 — Low-stock replenishment** *(Pending)*
+- [ ] **G4 — Low-stock replenishment** *(In progress)*
   - Apply low-stock rules automatically after partial use, use, waste, restore, and quantity edits.
   - Explain automatic shopping-list changes to the user.
 - [ ] **G6 — Suggested quantities** *(Pending)*

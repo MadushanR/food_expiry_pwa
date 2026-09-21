@@ -51,6 +51,7 @@ export function normalizeItem(raw = {}) {
     expiryDate: String(raw.expiryDate || raw.expiry || ""),
     openedDate: String(raw.openedDate || ""),
     afterOpeningDays: raw.afterOpeningDays === "" || raw.afterOpeningDays == null ? null : Number(raw.afterOpeningDays),
+    lowStockThreshold: raw.lowStockThreshold === "" || raw.lowStockThreshold == null ? null : Number(raw.lowStockThreshold),
     quantity: raw.quantity === "" || raw.quantity == null ? null : Number(raw.quantity),
     unit: String(raw.unit || "").trim(),
     location: String(raw.location || "Fridge"),
@@ -102,6 +103,7 @@ export function normalizeFoodTemplate(raw = {}) {
     brand: String(raw.brand || "").trim(),
     barcode: String(raw.barcode || "").trim(),
     afterOpeningDays: raw.afterOpeningDays === "" || raw.afterOpeningDays == null ? null : Number(raw.afterOpeningDays),
+    lowStockThreshold: raw.lowStockThreshold === "" || raw.lowStockThreshold == null ? null : Number(raw.lowStockThreshold),
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
   };
@@ -184,6 +186,25 @@ export function parsePackageQuantity(value = "") {
   return { quantity: Number(match[1].replace(",", ".")), unit: match[2].trim().slice(0, 24) };
 }
 
+export function sameProduct(first, second) {
+  if (first?.favoriteTemplateId && second?.favoriteTemplateId && first.favoriteTemplateId === second.favoriteTemplateId) return true;
+  const firstBarcode = String(first?.barcode || "").replace(/^0+/, "");
+  const secondBarcode = String(second?.barcode || "").replace(/^0+/, "");
+  if (firstBarcode && secondBarcode && firstBarcode === secondBarcode) return true;
+  const firstName = normalizeProductName(first?.name);
+  return Boolean(firstName && firstName === normalizeProductName(second?.name));
+}
+
+export function activeProductQuantity(reference, foods = []) {
+  return foods
+    .filter((food) => food.status === "active" && sameProduct(reference, food))
+    .reduce((total, food) => total + (food.quantity == null ? 1 : Number(food.quantity)), 0);
+}
+
+export function isLowStock(reference, foods = []) {
+  return reference?.lowStockThreshold != null && activeProductQuantity(reference, foods) <= Number(reference.lowStockThreshold);
+}
+
 export function shoppingProgress(groceries = [], itemIds = []) {
   const selected = itemIds.map((id) => groceries.find((item) => item.id === id)).filter(Boolean);
   const bought = selected.filter((item) => item.have).length;
@@ -214,6 +235,7 @@ export function validateItem(item) {
   if (!parseLocalDate(item.expiryDate)) return "Choose a valid expiry date.";
   if (item.openedDate && !parseLocalDate(item.openedDate)) return "Choose a valid opened date.";
   if (item.afterOpeningDays != null && (!Number.isInteger(item.afterOpeningDays) || item.afterOpeningDays < 1)) return "After-opening lifetime must be at least one day.";
+  if (item.lowStockThreshold != null && (!Number.isFinite(item.lowStockThreshold) || item.lowStockThreshold < 0)) return "Low-stock level must be zero or more.";
   if (item.quantity != null && (!Number.isFinite(item.quantity) || item.quantity < 0)) return "Quantity must be zero or more.";
   return "";
 }

@@ -1,6 +1,6 @@
 import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
-  groupActiveItems, hasActiveGroceryMatch, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
+  groupActiveItems, hasActiveGroceryMatch, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, outcomeCounts,
   parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, relativeExpiry, shoppingProgress, todayISO,
   validateGroceryItem, validateItem
 } from "./utils.js";
@@ -16,7 +16,7 @@ const elements = {
   expiredCount: $("#expiredCount"), todayCount: $("#todayCount"), soonCount: $("#soonCount"),
   usedCount: $("#usedCount"), wastedCount: $("#wastedCount"), frozenCount: $("#frozenCount"),
   itemDialog: $("#itemDialog"), itemForm: $("#itemForm"), itemId: $("#itemId"), itemName: $("#itemName"),
-  expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), afterOpeningDays: $("#afterOpeningDays"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
+  expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
   formError: $("#formError"), formTitle: $("#formTitle"), formEyebrow: $("#formEyebrow"),
@@ -113,11 +113,12 @@ function activeItemMarkup(item) {
   const relative = relativeExpiry(useBy);
   const relativeLabel = adjustedAfterOpening ? relative.replace(/^Expires/, "Use").replace(/^Expired/, "Use-by passed") : relative;
   const printedExpiry = adjustedAfterOpening ? `<span>Label expiry ${escapeHTML(formatDate(item.expiryDate, { month: "short", day: "numeric" }))}</span>` : "";
+  const lowStock = isLowStock(item, items) ? '<span class="low-stock-label">Low stock</span>' : "";
   const state = expiryState(useBy);
   const quantity = item.quantity == null ? "" : `${item.quantity}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}`;
   return `<article class="food-item ${state}" data-id="${escapeHTML(item.id)}">
     <div><p class="food-name">${escapeHTML(item.name)}</p>
-      <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeLabel)}</span><span>${adjustedAfterOpening ? "Use by " : ""}${escapeHTML(formatDate(useBy))}</span>${printedExpiry}${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}</div>
+      <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeLabel)}</span><span>${adjustedAfterOpening ? "Use by " : ""}${escapeHTML(formatDate(useBy))}</span>${printedExpiry}${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}${lowStock}</div>
       ${item.notes ? `<p class="food-notes">${escapeHTML(item.notes)}</p>` : ""}
     </div>
     <div class="item-menu"><button class="item-action primary-action" type="button" data-action="act" aria-label="Record an outcome for ${escapeHTML(item.name)}">Act</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action" type="button" data-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
@@ -285,6 +286,7 @@ function fillFromTemplate(template) {
   elements.itemName.value = template.name; elements.location.value = template.location;
   elements.quantity.value = template.quantity ?? ""; elements.unit.value = template.unit;
   elements.afterOpeningDays.value = template.afterOpeningDays ?? "";
+  elements.lowStockThreshold.value = template.lowStockThreshold ?? "";
   elements.brand.value = template.brand; elements.barcode.value = template.barcode;
 }
 
@@ -294,6 +296,7 @@ function openItemDialog(item = null) {
   elements.itemId.value = item?.id || ""; elements.itemName.value = item?.name || ""; elements.expiryDate.value = item?.expiryDate || todayISO();
   elements.openedDate.value = item?.openedDate || "";
   elements.afterOpeningDays.value = item?.afterOpeningDays ?? "";
+  elements.lowStockThreshold.value = item?.lowStockThreshold ?? "";
   elements.quantity.value = item?.quantity ?? ""; elements.unit.value = item?.unit || ""; elements.location.value = item?.location || "Fridge"; elements.notes.value = item?.notes || "";
   elements.barcode.value = item?.barcode || ""; elements.brand.value = item?.brand || ""; elements.manualBarcode.value = "";
   const favourite = item ? findMatchingFoodTemplate(item, foodTemplates) : null;
@@ -431,9 +434,11 @@ async function startScanner() {
 async function syncGroceryForItem(item, currentItems = items) {
   const grocery = findMatchingGroceryItem(item, groceryItems);
   if (!grocery) return null;
-  const shouldHave = item.status === "active" || item.status === "frozen"
+  const shouldHave = item.status === "frozen"
     ? true
-    : hasActiveGroceryMatch(grocery, currentItems, item.id);
+    : item.lowStockThreshold != null
+      ? !isLowStock(item, currentItems)
+      : item.status === "active" || hasActiveGroceryMatch(grocery, currentItems, item.id);
   if (grocery.have !== shouldHave) {
     await saveGroceryItem(db, { ...grocery, have: shouldHave, updatedAt: new Date().toISOString() });
   }
@@ -502,6 +507,7 @@ async function saveForm(event) {
     ...existing, id: existing?.id || makeId(), name: elements.itemName.value, expiryDate: elements.expiryDate.value,
     openedDate: elements.openedDate.value,
     afterOpeningDays: elements.afterOpeningDays.value,
+    lowStockThreshold: elements.lowStockThreshold.value,
     quantity: elements.quantity.value, unit: elements.unit.value, location: elements.location.value, notes: elements.notes.value,
     barcode: elements.barcode.value, brand: elements.brand.value,
     favoriteTemplateId: elements.saveFavorite.checked ? (elements.favoriteTemplateId.value || existing?.favoriteTemplateId || makeId()) : null,
@@ -609,6 +615,7 @@ function bindEvents() {
     const template = items.find((item) => item.id === button.dataset.recentId); if (!template) return;
     elements.itemName.value = template.name; elements.location.value = template.location; elements.quantity.value = template.quantity ?? ""; elements.unit.value = template.unit;
     elements.afterOpeningDays.value = template.afterOpeningDays ?? "";
+    elements.lowStockThreshold.value = template.lowStockThreshold ?? "";
     elements.brand.value = template.brand || ""; elements.barcode.value = template.barcode || "";
   });
   elements.favoriteFoodButtons.addEventListener("click", async (event) => {

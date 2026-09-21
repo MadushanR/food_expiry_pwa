@@ -76,6 +76,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .food-name { margin-bottom: 4px; font-weight: 750; overflow-wrap: anywhere; }
 .food-meta { display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: .8rem; }
 .expiry-label, .outcome-label { color: var(--accent); font-weight: 700; }
+.low-stock-label { color: var(--warning); font-weight: 750; }
 .food-item.expired .expiry-label, .food-item.wasted .outcome-label { color: var(--danger); }
 .food-item.soon .expiry-label, .food-item.frozen .outcome-label { color: var(--warning); }
 .food-notes { margin-top: 7px; color: var(--muted); font-size: .82rem; }
