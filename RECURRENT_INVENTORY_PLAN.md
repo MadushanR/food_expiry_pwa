@@ -4,8 +4,8 @@ This file is the hand-off source of truth for recurrent inventory and grocery sy
 
 ## Status
 
-- **In progress — Phase 4: pull request preparation**
-- Completed: 3 / 4
+- **Complete — pull request #7 opened**
+- Completed: 4 / 4
 - Last updated: 2026-09-24
 
 ## Phase 1 — Data model and stock rules
@@ -39,7 +39,7 @@ This file is the hand-off source of truth for recurrent inventory and grocery sy
 - [x] Refresh offline caching, README, and in-app help text.
 - [x] Run all automated and syntax checks.
 - [x] Visually verify phone-sized light and dark layouts and the core recurrent workflow.
-- [ ] Push the branch and open a pull request with test evidence.
+- [x] Push the branch and open pull request #7 with test evidence.
 
 ## Confirmed behavior
 
