@@ -104,6 +104,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .unknown-product[hidden] { display: none; }
 .unknown-product p { margin-top: 3px; color: var(--muted); font-size: .78rem; line-height: 1.35; }
 .unknown-product span { font-weight: 750; }
+.grocery-link-panel, .recurrent-settings { display: grid; gap: 8px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-muted); }
+.link-suggestion { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--accent-strong); font-size: .8rem; font-weight: 750; }
+.link-suggestion[hidden], .recurrent-settings[hidden] { display: none; }
 .nutrition-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .nutrition-value { padding: 8px; border-radius: 10px; background: var(--surface-muted); text-align: center; }
 .nutrition-value strong, .nutrition-value span { display: block; }

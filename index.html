@@ -112,6 +112,11 @@
       <div id="favoriteFoods" class="recent-foods" hidden><span class="field-label">Favourite templates</span><div id="favoriteFoodButtons" class="favorite-template-list"></div></div>
       <div id="recentFoods" class="recent-foods" hidden><span class="field-label">Recently added</span><div id="recentFoodButtons" class="date-shortcuts"></div></div>
       <label class="field full-width"><span>Food name</span><input id="itemName" type="text" required maxlength="80" autocomplete="off" placeholder="e.g. Greek yogurt"></label>
+      <div class="grocery-link-panel">
+        <label class="field full-width"><span>Grocery product <small>optional</small></span><select id="groceryLink"><option value="">Not linked</option></select></label>
+        <div id="groceryLinkSuggestion" class="link-suggestion" hidden><span></span><button class="chip" id="useGrocerySuggestion" type="button">Use suggestion</button></div>
+        <p class="helper-text">Confirming a link lets inventory update that grocery product automatically.</p>
+      </div>
       <div class="form-grid">
         <label class="field"><span>Expiry date</span><input id="expiryDate" type="date" required></label>
         <label class="field"><span>Opened date <small>optional</small></span><input id="openedDate" type="date"></label>
@@ -133,7 +138,7 @@
       <label class="field full-width"><span>Notes <small>optional</small></span><textarea id="notes" rows="2" maxlength="240" placeholder="Opened on Monday, top shelf…"></textarea></label>
       <label class="check-field"><input id="saveFavorite" type="checkbox"><span>Save these product details as a favourite template</span></label>
       <p id="formError" class="form-error" role="alert"></p>
-      <div class="dialog-actions"><button class="secondary-button" type="button" id="cancelItemButton">Cancel</button><button class="primary-button" type="submit">Save item</button></div>
+      <div class="dialog-actions"><button class="text-button" type="button" id="noCurrentStockButton" hidden>No current stock</button><button class="secondary-button" type="button" id="cancelItemButton">Cancel</button><button class="primary-button" type="submit">Save item</button></div>
     </form>
   </dialog>
 
@@ -146,7 +151,16 @@
         <label class="field"><span>Quantity <small>optional</small></span><input id="groceryQuantity" type="text" maxlength="30" placeholder="e.g. 3 or 2 packs"></label>
         <label class="field"><span>Store</span><select id="groceryStore"><option>Walmart</option><option>Dollarama</option><option>Other</option></select></label>
       </div>
-      <label class="check-field"><input id="groceryHave" type="checkbox"><span>I already have this item</span></label>
+      <label class="check-field"><input id="groceryRestockEnabled" type="checkbox"><span>Automatically restock this item from inventory</span></label>
+      <section class="recurrent-settings" id="groceryRestockSettings" hidden>
+        <p class="helper-text">FreshCheck will use linked inventory as the source of truth.</p>
+        <div class="form-grid">
+          <label class="field"><span>Stock unit</span><input id="groceryStockUnit" type="text" maxlength="24" placeholder="eggs, cartons, packs"></label>
+          <label class="field"><span>Minimum stock</span><input id="groceryRestockThreshold" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
+          <label class="field"><span>Target stock</span><input id="groceryTargetStock" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 12"></label>
+        </div>
+      </section>
+      <label class="check-field" id="groceryHaveField"><input id="groceryHave" type="checkbox"><span>I already have this item</span></label>
       <p id="groceryFormError" class="form-error" role="alert"></p>
       <div class="dialog-actions"><button class="secondary-button" type="button" id="cancelGroceryButton">Cancel</button><button class="primary-button" type="submit">Save item</button></div>
     </form>

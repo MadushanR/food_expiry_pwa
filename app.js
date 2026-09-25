@@ -1,7 +1,7 @@
 import {
-  activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
-  groupActiveItems, hasActiveGroceryMatch, hasNutrition, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, swipeDirection, todayISO, unknownProductDraft, useFirstPriority, useItUpSuggestions,
+  activeProductQuantity, addDaysISO, applyRecurrentGroceryState, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
+  groupActiveItems, hasActiveGroceryMatch, hasNutrition, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeProductName, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, recurrentGroceryState, registerRapidBarcode, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, swipeDirection, todayISO, unknownProductDraft, useFirstPriority, useItUpSuggestions,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -17,6 +17,7 @@ const elements = {
   useItUpSection: $("#useItUpSection"), useItUpList: $("#useItUpList"),
   usedCount: $("#usedCount"), wastedCount: $("#wastedCount"), frozenCount: $("#frozenCount"),
   itemDialog: $("#itemDialog"), itemForm: $("#itemForm"), itemId: $("#itemId"), itemName: $("#itemName"),
+  groceryLink: $("#groceryLink"), groceryLinkSuggestion: $("#groceryLinkSuggestion"), useGrocerySuggestion: $("#useGrocerySuggestion"), noCurrentStockButton: $("#noCurrentStockButton"),
   expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), freezeByDate: $("#freezeByDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), targetQuantity: $("#targetQuantity"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
@@ -35,7 +36,8 @@ const elements = {
   walmartNeedCount: $("#walmartNeedCount"), dollaramaNeedCount: $("#dollaramaNeedCount"),
   groceryDialog: $("#groceryDialog"), groceryForm: $("#groceryForm"), groceryItemId: $("#groceryItemId"),
   groceryItemName: $("#groceryItemName"), groceryQuantity: $("#groceryQuantity"), groceryStore: $("#groceryStore"),
-  groceryHave: $("#groceryHave"), groceryFormError: $("#groceryFormError"),
+  groceryHave: $("#groceryHave"), groceryHaveField: $("#groceryHaveField"), groceryRestockEnabled: $("#groceryRestockEnabled"),
+  groceryRestockSettings: $("#groceryRestockSettings"), groceryStockUnit: $("#groceryStockUnit"), groceryRestockThreshold: $("#groceryRestockThreshold"), groceryTargetStock: $("#groceryTargetStock"), groceryFormError: $("#groceryFormError"),
   groceryFormTitle: $("#groceryFormTitle"), groceryFormEyebrow: $("#groceryFormEyebrow"),
   shoppingDialog: $("#shoppingDialog"), shoppingStore: $("#shoppingStore"), shoppingList: $("#shoppingList"),
   shoppingProgressText: $("#shoppingProgressText"), shoppingProgressBar: $("#shoppingProgressBar"), shoppingWakeStatus: $("#shoppingWakeStatus"),
@@ -64,6 +66,8 @@ let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 let pendingNutrition = null;
 let rapidScannedBarcodes = new Set();
 let swipeStart = null;
+let suggestedGroceryId = null;
+let currentStockSetupGroceryId = null;
 
 function escapeHTML(value) {
   const node = document.createElement("span");
@@ -383,9 +387,46 @@ function fillFromTemplate(template) {
   elements.lowStockThreshold.value = template.lowStockThreshold ?? "";
   elements.targetQuantity.value = template.targetQuantity ?? "";
   elements.brand.value = template.brand; elements.barcode.value = template.barcode;
+  updateGroceryLinkSuggestion();
 }
 
-function openItemDialog(item = null) {
+function populateGroceryLinks(selectedId = "") {
+  const options = [...groceryItems].sort((a, b) => a.name.localeCompare(b.name));
+  elements.groceryLink.innerHTML = '<option value="">Not linked</option>' + options.map((grocery) =>
+    `<option value="${escapeHTML(grocery.id)}">${escapeHTML(grocery.name)} · ${escapeHTML(grocery.store)}${grocery.restockEnabled ? " · Auto restock" : ""}</option>`
+  ).join("");
+  elements.groceryLink.value = selectedId || "";
+}
+
+function applySelectedGroceryLink(prefillQuantity = false) {
+  const grocery = groceryItems.find((entry) => entry.id === elements.groceryLink.value);
+  if (!grocery?.restockEnabled) return;
+  elements.unit.value = grocery.stockUnit;
+  if (prefillQuantity && !elements.quantity.value) {
+    const state = recurrentGroceryState(grocery, items);
+    elements.quantity.value = state.suggestedAmount > 0 ? state.suggestedAmount : 1;
+  }
+}
+
+function updateGroceryLinkSuggestion() {
+  suggestedGroceryId = null;
+  elements.groceryLinkSuggestion.hidden = true;
+  if (elements.groceryLink.value || !elements.itemName.value.trim()) return;
+  const suggestion = findMatchingGroceryItem({ name: elements.itemName.value }, groceryItems);
+  if (!suggestion) return;
+  suggestedGroceryId = suggestion.id;
+  elements.groceryLinkSuggestion.querySelector("span").textContent = `Suggested grocery link: ${suggestion.name} · ${suggestion.store}`;
+  elements.groceryLinkSuggestion.hidden = false;
+}
+
+function setGroceryRestockVisibility() {
+  const enabled = elements.groceryRestockEnabled.checked;
+  elements.groceryRestockSettings.hidden = !enabled;
+  elements.groceryHaveField.hidden = enabled;
+  [elements.groceryStockUnit, elements.groceryRestockThreshold, elements.groceryTargetStock].forEach((input) => { input.required = enabled; });
+}
+
+function openItemDialog(item = null, options = {}) {
   stopScanner();
   elements.itemForm.reset(); elements.formError.textContent = "";
   elements.unknownProductNotice.hidden = true;
@@ -398,10 +439,18 @@ function openItemDialog(item = null) {
   pendingNutrition = item?.nutrition || null; renderNutritionPreview();
   elements.quantity.value = item?.quantity ?? ""; elements.unit.value = item?.unit || ""; elements.location.value = item?.location || "Fridge"; elements.notes.value = item?.notes || "";
   elements.barcode.value = item?.barcode || ""; elements.brand.value = item?.brand || ""; elements.manualBarcode.value = "";
+  currentStockSetupGroceryId = options.currentStockSetup ? options.grocery?.id || null : null;
+  populateGroceryLinks(item?.groceryItemId || options.grocery?.id || "");
+  elements.noCurrentStockButton.hidden = !currentStockSetupGroceryId;
+  if (options.grocery) {
+    elements.itemName.value = options.grocery.name;
+    applySelectedGroceryLink(Boolean(options.prefillQuantity));
+  }
   const favourite = item ? findMatchingFoodTemplate(item, foodTemplates) : null;
   elements.favoriteTemplateId.value = favourite?.id || item?.favoriteTemplateId || ""; elements.saveFavorite.checked = Boolean(favourite);
   elements.formTitle.textContent = item ? "Edit food" : "Add food"; elements.formEyebrow.textContent = item ? "Update item" : "New item";
   renderFavouriteFoods(); if (item) elements.recentFoods.hidden = true; else renderRecentFoods();
+  updateGroceryLinkSuggestion();
   elements.itemDialog.showModal(); requestAnimationFrame(() => elements.itemName.focus());
 }
 
@@ -409,6 +458,11 @@ function openGroceryDialog(item = null) {
   elements.groceryForm.reset(); elements.groceryFormError.textContent = "";
   elements.groceryItemId.value = item?.id || ""; elements.groceryItemName.value = item?.name || "";
   elements.groceryQuantity.value = item?.quantity || ""; elements.groceryStore.value = item?.store || "Walmart"; elements.groceryHave.checked = item?.have || false;
+  elements.groceryRestockEnabled.checked = item?.restockEnabled || false;
+  elements.groceryStockUnit.value = item?.stockUnit || "";
+  elements.groceryRestockThreshold.value = item?.restockThreshold ?? 0;
+  elements.groceryTargetStock.value = item?.targetStock ?? "";
+  setGroceryRestockVisibility();
   elements.groceryFormTitle.textContent = item ? "Edit grocery" : "Add grocery"; elements.groceryFormEyebrow.textContent = item ? "Update shopping item" : "Shopping item";
   elements.groceryDialog.showModal(); requestAnimationFrame(() => elements.groceryItemName.focus());
 }
@@ -477,6 +531,7 @@ function fillProductFields(product, parsed, source) {
     : " The package expiry is not in this barcode, so please enter it before saving.";
   scannerMessage(`${source}${dateMessage}`);
   stopScannerCameraOnly();
+  updateGroceryLinkSuggestion();
   elements.itemName.focus();
 }
 
@@ -562,9 +617,22 @@ async function startScanner() {
   }
 }
 
-async function syncGroceryForItem(item, currentItems = items) {
-  const grocery = findMatchingGroceryItem(item, groceryItems);
+async function syncRecurrentGroceryById(groceryId, currentItems = items, clearBuyNow = false) {
+  const grocery = groceryItems.find((entry) => entry.id === groceryId);
+  if (!grocery?.restockEnabled) return null;
+  const source = clearBuyNow ? { ...grocery, buyNowOverride: false } : grocery;
+  const updated = applyRecurrentGroceryState(source, currentItems);
+  const changed = grocery.have !== updated.have || grocery.suggestedQuantity !== updated.suggestedQuantity || grocery.buyNowOverride !== updated.buyNowOverride;
+  if (changed) await saveGroceryItem(db, { ...updated, updatedAt: new Date().toISOString() });
+  const state = recurrentGroceryState(updated, currentItems);
+  return { grocery: updated, changed, shouldHave: state.have, threshold: updated.restockThreshold, stock: state.stock, suggestedQuantity: state.suggestedQuantity };
+}
+
+async function syncGroceryForItem(item, currentItems = items, clearBuyNow = false) {
+  const explicit = item?.groceryItemId ? groceryItems.find((entry) => entry.id === item.groceryItemId) : null;
+  const grocery = explicit || findMatchingGroceryItem(item, groceryItems.filter((entry) => !entry.restockEnabled));
   if (!grocery) return null;
+  if (grocery.restockEnabled) return syncRecurrentGroceryById(grocery.id, currentItems, clearBuyNow);
   const threshold = configuredLowStockThreshold(item, currentItems, foodTemplates);
   const stock = activeProductQuantity(item, currentItems);
   const suggested = suggestedRestockQuantity(item, currentItems, foodTemplates);
@@ -668,6 +736,7 @@ async function recordOutcome(status) {
 async function saveForm(event) {
   event.preventDefault();
   const existing = items.find((item) => item.id === elements.itemId.value);
+  const selectedGrocery = groceryItems.find((entry) => entry.id === elements.groceryLink.value) || null;
   const continueRapidScan = elements.rapidScanMode.checked && !existing;
   const item = normalizeItem({
     ...existing, id: existing?.id || makeId(), name: elements.itemName.value, expiryDate: elements.expiryDate.value,
@@ -678,21 +747,26 @@ async function saveForm(event) {
     targetQuantity: elements.targetQuantity.value,
     nutrition: pendingNutrition,
     quantity: elements.quantity.value, unit: elements.unit.value, location: elements.location.value, notes: elements.notes.value,
-    barcode: elements.barcode.value, brand: elements.brand.value,
+    barcode: elements.barcode.value, brand: elements.brand.value, groceryItemId: selectedGrocery?.id || null,
     favoriteTemplateId: elements.saveFavorite.checked ? (elements.favoriteTemplateId.value || existing?.favoriteTemplateId || makeId()) : null,
     status: existing?.status || "active", createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
   });
+  if (selectedGrocery?.restockEnabled && item.unit.trim().toLowerCase() !== selectedGrocery.stockUnit.trim().toLowerCase()) {
+    elements.formError.textContent = `Use ${selectedGrocery.stockUnit} as the unit for linked ${selectedGrocery.name} stock.`; return;
+  }
   const error = validateItem(item); if (error) { elements.formError.textContent = error; return; }
   const duplicate = items.find((other) => other.id !== item.id && other.status === "active" && other.name.toLowerCase() === item.name.toLowerCase() && other.expiryDate === item.expiryDate);
   if (duplicate && !confirm(`Another ${item.name} with this expiry date already exists. Save it anyway?`)) return;
-  const grocery = findMatchingGroceryItem(item, groceryItems);
-  if (grocery) item.groceryItemId = grocery.id;
+  const grocery = selectedGrocery;
   const previousTemplate = existing ? findMatchingFoodTemplate(existing, foodTemplates) : null;
   if (elements.saveFavorite.checked) {
     await saveFoodTemplate(db, normalizeFoodTemplate({ ...item, id: item.favoriteTemplateId, createdAt: previousTemplate?.createdAt }));
   } else if (previousTemplate) await removeFoodTemplate(db, previousTemplate.id);
-  await saveItem(db, item); const sync = await syncGroceryForItem(item, items.map((entry) => entry.id === item.id ? item : entry).concat(existing ? [] : [item]));
-  stopScanner(); elements.itemDialog.close(); await refresh();
+  const nextItems = items.map((entry) => entry.id === item.id ? item : entry).concat(existing ? [] : [item]);
+  await saveItem(db, item);
+  if (existing?.groceryItemId && existing.groceryItemId !== item.groceryItemId) await syncRecurrentGroceryById(existing.groceryItemId, nextItems);
+  const sync = await syncGroceryForItem(item, nextItems, true);
+  stopScanner(); elements.itemDialog.close(); currentStockSetupGroceryId = null; await refresh();
   showToast(grocery ? `${item.name} saved${grocerySyncSuffix(sync) || " · grocery list checked"}` : (existing ? `${item.name} updated` : `${item.name} added`));
   if (continueRapidScan) {
     openItemDialog();
@@ -709,17 +783,42 @@ async function saveGroceryForm(event) {
     ...existing, id: existing?.id || makeId(), name: elements.groceryItemName.value, quantity: elements.groceryQuantity.value,
     suggestedQuantity: existing?.suggestedQuantity || "",
     store: elements.groceryStore.value, have: elements.groceryHave.checked,
+    restockEnabled: elements.groceryRestockEnabled.checked,
+    stockUnit: elements.groceryStockUnit.value,
+    restockThreshold: elements.groceryRestockThreshold.value,
+    targetStock: elements.groceryTargetStock.value,
+    buyNowOverride: existing?.buyNowOverride || false,
     createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
   });
   const linkedFood = items.find((food) => food.status === "active" && findMatchingGroceryItem(food, [item]));
-  if (linkedFood) {
+  if (!item.restockEnabled && linkedFood) {
     const threshold = configuredLowStockThreshold(linkedFood, items, foodTemplates);
     item.have = threshold == null ? true : activeProductQuantity(linkedFood, items) > threshold;
   }
   const error = validateGroceryItem(item); if (error) { elements.groceryFormError.textContent = error; return; }
+  const incompatible = item.restockEnabled && items.find((food) => food.groceryItemId === item.id && ["active", "frozen"].includes(food.status) && food.unit.trim().toLowerCase() !== item.stockUnit.toLowerCase());
+  if (incompatible) { elements.groceryFormError.textContent = `${incompatible.name} uses ${incompatible.unit || "no unit"}. Update that inventory batch before changing this stock unit.`; return; }
   const duplicate = groceryItems.find((other) => other.id !== item.id && other.store === item.store && other.name.toLowerCase() === item.name.toLowerCase());
   if (duplicate && !confirm(`${item.name} is already listed for ${item.store}. Save another one?`)) return;
-  await saveGroceryItem(db, item); elements.groceryDialog.close(); await refresh(); showToast(existing ? `${item.name} updated` : `${item.name} added to groceries`);
+  await saveGroceryItem(db, item);
+  let workingItems = items;
+  if (item.restockEnabled && !existing?.restockEnabled) {
+    const candidates = items.filter((food) => ["active", "frozen"].includes(food.status)
+      && (!food.groceryItemId || food.groceryItemId === item.id)
+      && normalizeProductName(food.name) === normalizeProductName(item.name)
+      && (!food.unit || food.unit.trim().toLowerCase() === item.stockUnit.toLowerCase()));
+    if (candidates.length && confirm(`Link ${candidates.length} existing ${item.name} inventory ${candidates.length === 1 ? "batch" : "batches"} to automatic restocking?`)) {
+      const candidateIds = new Set(candidates.map((food) => food.id));
+      workingItems = items.map((food) => candidateIds.has(food.id) ? normalizeItem({ ...food, groceryItemId: item.id, unit: food.unit || item.stockUnit, updatedAt: new Date().toISOString() }) : food);
+      for (const food of workingItems.filter((entry) => candidateIds.has(entry.id))) await saveItem(db, food);
+    }
+  }
+  const savedItem = item.restockEnabled ? applyRecurrentGroceryState(item, workingItems) : item;
+  if (item.restockEnabled) await saveGroceryItem(db, savedItem);
+  const needsCurrentStockSetup = item.restockEnabled && !existing?.restockEnabled && Boolean(existing?.have) && recurrentGroceryState(savedItem, workingItems).stock === 0;
+  elements.groceryDialog.close(); await refresh();
+  if (needsCurrentStockSetup) openItemDialog(null, { grocery: groceryItems.find((entry) => entry.id === item.id) || savedItem, currentStockSetup: true });
+  showToast(existing ? `${item.name} updated` : `${item.name} added to groceries`);
 }
 
 async function handleGroceryClick(event) {
@@ -806,9 +905,14 @@ function bindEvents() {
     const summary = event.target.closest("[data-inventory-filter]");
     if (summary) { elements.filter.value = summary.dataset.inventoryFilter; setView("inventory"); renderInventory(); }
   });
-  $("#cancelItemButton").addEventListener("click", () => { endRapidScanSession(); elements.itemDialog.close(); });
-  $("#closeItemButton").addEventListener("click", () => { endRapidScanSession(); elements.itemDialog.close(); });
-  elements.itemDialog.addEventListener("cancel", endRapidScanSession);
+  $("#cancelItemButton").addEventListener("click", () => { endRapidScanSession(); currentStockSetupGroceryId = null; elements.itemDialog.close(); });
+  $("#closeItemButton").addEventListener("click", () => { endRapidScanSession(); currentStockSetupGroceryId = null; elements.itemDialog.close(); });
+  elements.itemDialog.addEventListener("cancel", () => { endRapidScanSession(); currentStockSetupGroceryId = null; });
+  elements.noCurrentStockButton.addEventListener("click", () => {
+    const grocery = groceryItems.find((entry) => entry.id === currentStockSetupGroceryId);
+    endRapidScanSession(); currentStockSetupGroceryId = null; elements.itemDialog.close();
+    showToast(grocery ? `${grocery.name} set to To buy with no current stock` : "No current stock saved");
+  });
   $("#scanBarcodeButton").addEventListener("click", startScanner);
   $("#stopScannerButton").addEventListener("click", stopScanner);
   $("#lookupBarcodeButton").addEventListener("click", () => lookUpBarcode(elements.manualBarcode.value));
@@ -819,6 +923,12 @@ function bindEvents() {
   });
   $("#unknownProductContinue").addEventListener("click", () => elements.itemName.focus());
   elements.itemForm.addEventListener("submit", saveForm);
+  elements.itemName.addEventListener("input", updateGroceryLinkSuggestion);
+  elements.groceryLink.addEventListener("change", () => { applySelectedGroceryLink(false); updateGroceryLinkSuggestion(); });
+  elements.useGrocerySuggestion.addEventListener("click", () => {
+    if (!suggestedGroceryId) return;
+    elements.groceryLink.value = suggestedGroceryId; applySelectedGroceryLink(false); updateGroceryLinkSuggestion();
+  });
   [elements.todayGroups, elements.inventoryGroups, elements.historyList].forEach((container) => container.addEventListener("click", handleItemAction));
   [elements.todayGroups, elements.inventoryGroups, elements.historyList].forEach((container) => {
     container.addEventListener("pointerdown", handleSwipeStart);
@@ -842,6 +952,7 @@ function bindEvents() {
     elements.targetQuantity.value = template.targetQuantity ?? "";
     elements.brand.value = template.brand || ""; elements.barcode.value = template.barcode || "";
     pendingNutrition = template.nutrition || null; renderNutritionPreview();
+    updateGroceryLinkSuggestion();
   });
   elements.favoriteFoodButtons.addEventListener("click", async (event) => {
     const removeButton = event.target.closest("[data-remove-template-id]");
@@ -883,6 +994,7 @@ function bindEvents() {
   });
   $("#closeGroceryButton").addEventListener("click", () => elements.groceryDialog.close());
   $("#cancelGroceryButton").addEventListener("click", () => elements.groceryDialog.close());
+  elements.groceryRestockEnabled.addEventListener("change", setGroceryRestockVisibility);
   elements.groceryForm.addEventListener("submit", saveGroceryForm);
   elements.groceryList.addEventListener("click", handleGroceryClick);
   elements.groceryList.addEventListener("change", handleGroceryToggle);

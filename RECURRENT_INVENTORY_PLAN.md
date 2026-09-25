@@ -4,8 +4,8 @@ This file is the hand-off source of truth for recurrent inventory and grocery sy
 
 ## Status
 
-- **In progress — Phase 2: grocery setup and inventory linking**
-- Completed: 1 / 4
+- **In progress — Phase 3: buying and synchronization workflows**
+- Completed: 2 / 4
 - Last updated: 2026-09-24
 
 ## Phase 1 — Data model and stock rules
@@ -18,11 +18,11 @@ This file is the hand-off source of truth for recurrent inventory and grocery sy
 
 ## Phase 2 — Grocery setup and inventory linking
 
-- [ ] Add Automatically restock, unit, minimum, and target controls to the grocery editor.
-- [ ] Guide initial setup by confirming existing matches, adding current stock, or choosing No current stock.
-- [ ] Suggest a grocery link during direct inventory entry and require confirmation.
-- [ ] Recalculate both grocery products when an inventory item is relinked.
-- [ ] Keep recurrence settings when automatic restocking is disabled.
+- [x] Add Automatically restock, unit, minimum, and target controls to the grocery editor.
+- [x] Guide initial setup by confirming existing matches, adding current stock, or choosing No current stock.
+- [x] Suggest a grocery link during direct inventory entry and require confirmation.
+- [x] Recalculate both grocery products when an inventory item is relinked.
+- [x] Keep recurrence settings when automatic restocking is disabled.
 
 ## Phase 3 — Buying and synchronization workflows
 
