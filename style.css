@@ -57,6 +57,7 @@ button.summary-card { cursor: pointer; }
 .secondary-button { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
 .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; margin: 22px 0 24px; }
 .history-toolbar { display: flex; justify-content: flex-end; margin: -12px 0 22px; }
+.view-helper { margin: 10px 2px 0; color: var(--muted); font-size: .8rem; line-height: 1.45; }
 input, select, textarea {
   width: 100%; min-height: 46px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--surface); color: var(--text); padding: 10px 12px; font-size: 16px;
@@ -104,6 +105,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .unknown-product[hidden] { display: none; }
 .unknown-product p { margin-top: 3px; color: var(--muted); font-size: .78rem; line-height: 1.35; }
 .unknown-product span { font-weight: 750; }
+.grocery-link-panel, .recurrent-settings { display: grid; gap: 8px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-muted); }
+.link-suggestion { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--accent-strong); font-size: .8rem; font-weight: 750; }
+.link-suggestion[hidden], .recurrent-settings[hidden] { display: none; }
 .nutrition-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .nutrition-value { padding: 8px; border-radius: 10px; background: var(--surface-muted); text-align: center; }
 .nutrition-value strong, .nutrition-value span { display: block; }
@@ -125,8 +129,11 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 }
 .grocery-row.have .grocery-name { color: var(--muted); text-decoration: line-through; }
 .grocery-toggle { width: 24px; height: 24px; min-height: 24px; margin: 0; accent-color: var(--accent); }
+.grocery-state-button, .shopping-stock-button { display: grid; place-items: center; width: 34px; min-width: 34px; height: 34px; min-height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); font-size: 1.15rem; font-weight: 850; }
+.grocery-state-button.have { background: var(--surface-muted); color: var(--accent); }
+.auto-restock-label { color: var(--accent-strong); font-weight: 750; }
 .grocery-name { font-weight: 750; }
-.grocery-meta { margin-top: 3px; color: var(--muted); font-size: .8rem; }
+.grocery-meta { display: flex; flex-wrap: wrap; gap: 3px 9px; margin-top: 3px; color: var(--muted); font-size: .8rem; }
 .store-label { color: var(--brown); font-weight: 700; }
 .empty-state { padding: 48px 20px; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); text-align: center; }
 .empty-state strong { display: block; margin-bottom: 8px; color: var(--text); font-size: 1.05rem; }
@@ -195,6 +202,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .shopping-list { display: grid; gap: 10px; padding-bottom: 84px; }
 .shopping-row { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 13px; min-height: 66px; padding: 12px 15px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
 .shopping-row input { width: 30px; height: 30px; min-height: 30px; margin: 0; accent-color: var(--accent); }
+.shopping-stock-button { width: 38px; min-width: 38px; height: 38px; min-height: 38px; }
 .shopping-row strong, .shopping-row span { display: block; }
 .shopping-row span { margin-top: 3px; color: var(--muted); font-size: .82rem; }
 .shopping-row.have strong { color: var(--muted); text-decoration: line-through; }
@@ -231,6 +239,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
   .search-field { grid-column: 1 / -1; }
   .toolbar select { width: 100%; }
   .food-item { grid-template-columns: 1fr; }
+  .grocery-row { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  .grocery-row > .item-menu { grid-column: 2; justify-content: flex-start; }
   .item-menu { justify-content: flex-start; }
   .form-grid { grid-template-columns: 1fr; }
   .scan-row { align-items: flex-start; flex-direction: column; }

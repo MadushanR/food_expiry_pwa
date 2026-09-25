@@ -1,7 +1,7 @@
 import {
-  activeProductQuantity, addDaysISO, calendarGridDates, configuredLowStockThreshold, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
-  groupActiveItems, hasActiveGroceryMatch, hasNutrition, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
-  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, swipeDirection, todayISO, unknownProductDraft, useFirstPriority, useItUpSuggestions,
+  addDaysISO, applyRecurrentGroceryState, calendarGridDates, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem,
+  groupActiveItems, hasNutrition, isLowStock, makeId, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeProductName, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
+  parseGS1Barcode, parsePackageQuantity, recentFoodTemplates, recurrentGroceryState, registerRapidBarcode, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestThawUseByDate, swipeDirection, todayISO, unknownProductDraft, useFirstPriority, useItUpSuggestions,
   validateGroceryItem, validateItem
 } from "./utils.js";
 import {
@@ -17,6 +17,7 @@ const elements = {
   useItUpSection: $("#useItUpSection"), useItUpList: $("#useItUpList"),
   usedCount: $("#usedCount"), wastedCount: $("#wastedCount"), frozenCount: $("#frozenCount"),
   itemDialog: $("#itemDialog"), itemForm: $("#itemForm"), itemId: $("#itemId"), itemName: $("#itemName"),
+  groceryLink: $("#groceryLink"), groceryLinkSuggestion: $("#groceryLinkSuggestion"), useGrocerySuggestion: $("#useGrocerySuggestion"), noCurrentStockButton: $("#noCurrentStockButton"),
   expiryDate: $("#expiryDate"), openedDate: $("#openedDate"), freezeByDate: $("#freezeByDate"), afterOpeningDays: $("#afterOpeningDays"), lowStockThreshold: $("#lowStockThreshold"), targetQuantity: $("#targetQuantity"), quantity: $("#quantity"), unit: $("#unit"), location: $("#location"), notes: $("#notes"),
   barcode: $("#barcode"), brand: $("#brand"), scannerPanel: $("#scannerPanel"), barcodeVideo: $("#barcodeVideo"),
   scannerStatus: $("#scannerStatus"), manualBarcode: $("#manualBarcode"),
@@ -35,7 +36,8 @@ const elements = {
   walmartNeedCount: $("#walmartNeedCount"), dollaramaNeedCount: $("#dollaramaNeedCount"),
   groceryDialog: $("#groceryDialog"), groceryForm: $("#groceryForm"), groceryItemId: $("#groceryItemId"),
   groceryItemName: $("#groceryItemName"), groceryQuantity: $("#groceryQuantity"), groceryStore: $("#groceryStore"),
-  groceryHave: $("#groceryHave"), groceryFormError: $("#groceryFormError"),
+  groceryHave: $("#groceryHave"), groceryHaveField: $("#groceryHaveField"), groceryRestockEnabled: $("#groceryRestockEnabled"),
+  groceryRestockSettings: $("#groceryRestockSettings"), groceryStockUnit: $("#groceryStockUnit"), groceryRestockThreshold: $("#groceryRestockThreshold"), groceryTargetStock: $("#groceryTargetStock"), groceryFormError: $("#groceryFormError"),
   groceryFormTitle: $("#groceryFormTitle"), groceryFormEyebrow: $("#groceryFormEyebrow"),
   shoppingDialog: $("#shoppingDialog"), shoppingStore: $("#shoppingStore"), shoppingList: $("#shoppingList"),
   shoppingProgressText: $("#shoppingProgressText"), shoppingProgressBar: $("#shoppingProgressBar"), shoppingWakeStatus: $("#shoppingWakeStatus"),
@@ -64,6 +66,10 @@ let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 let pendingNutrition = null;
 let rapidScannedBarcodes = new Set();
 let swipeStart = null;
+let suggestedGroceryId = null;
+let currentStockSetupGroceryId = null;
+let purchaseGroceryId = null;
+let resumeShoppingAfterItem = false;
 
 function escapeHTML(value) {
   const node = document.createElement("span");
@@ -128,7 +134,9 @@ function activeItemMarkup(item) {
   const relative = relativeExpiry(useBy);
   const relativeLabel = adjustedAfterOpening ? relative.replace(/^Expires/, "Use").replace(/^Expired/, "Use-by passed") : relative;
   const printedExpiry = adjustedAfterOpening ? `<span>Label expiry ${escapeHTML(formatDate(item.expiryDate, { month: "short", day: "numeric" }))}</span>` : "";
-  const lowStock = isLowStock(item, items) ? '<span class="low-stock-label">Low stock</span>' : "";
+  const linkedGrocery = item.groceryItemId ? groceryItems.find((entry) => entry.id === item.groceryItemId) : null;
+  const recurrent = linkedGrocery?.restockEnabled ? recurrentGroceryState(linkedGrocery, items) : null;
+  const lowStock = recurrent?.needsBuy || (!recurrent && isLowStock(item, items)) ? '<span class="low-stock-label">Low stock</span>' : "";
   const priority = useFirstPriority(item);
   const freezeBy = item.freezeByDate || suggestFreezeByDate(item);
   const nutrition = hasNutrition(item.nutrition) ? nutritionMarkup(item.nutrition) : "";
@@ -136,7 +144,7 @@ function activeItemMarkup(item) {
   const quantity = item.quantity == null ? "" : `${item.quantity}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}`;
   return `<article class="food-item ${state}" data-id="${escapeHTML(item.id)}">
     <div><p class="food-name">${escapeHTML(item.name)}</p>
-      <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeLabel)}</span><span>${adjustedAfterOpening ? "Use by " : ""}${escapeHTML(formatDate(useBy))}</span>${printedExpiry}${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}${item.thawedDate ? `<span>Thawed ${escapeHTML(formatDate(item.thawedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}${lowStock}</div>
+      <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeLabel)}</span><span>${adjustedAfterOpening ? "Use by " : ""}${escapeHTML(formatDate(useBy))}</span>${printedExpiry}${item.openedDate ? `<span>Opened ${escapeHTML(formatDate(item.openedDate, { month: "short", day: "numeric" }))}</span>` : ""}${item.thawedDate ? `<span>Thawed ${escapeHTML(formatDate(item.thawedDate, { month: "short", day: "numeric" }))}</span>` : ""}<span>${escapeHTML(item.location)}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${quantity ? `<span>${quantity}</span>` : ""}${linkedGrocery ? `<span>Linked to ${escapeHTML(linkedGrocery.name)}</span>` : ""}${lowStock}</div>
       ${item.notes ? `<p class="food-notes">${escapeHTML(item.notes)}</p>` : ""}
       <p class="use-first-reason">Use first: ${escapeHTML(priority.reason)}</p>
       ${freezeBy ? `<p class="freeze-suggestion">${item.freezeByDate ? "Freeze by" : "Suggested freeze-by"}: ${escapeHTML(formatDate(freezeBy, { month: "short", day: "numeric" }))}</p>` : ""}
@@ -159,11 +167,24 @@ function historyItemMarkup(item) {
 }
 
 function groceryItemMarkup(item) {
-  const quantity = item.quantity ? ` · ${escapeHTML(item.quantity)}` : item.suggestedQuantity ? ` · Suggested ${escapeHTML(item.suggestedQuantity)}` : "";
+  const recurrent = item.restockEnabled ? recurrentGroceryState(item, items) : null;
+  const quantity = recurrent
+    ? `${escapeHTML(recurrent.stock)} of ${escapeHTML(item.targetStock)} ${escapeHTML(item.stockUnit)}${recurrent.suggestedQuantity ? ` · Buy ${escapeHTML(recurrent.suggestedQuantity)}` : ""}`
+    : item.quantity ? escapeHTML(item.quantity) : item.suggestedQuantity ? `Suggested ${escapeHTML(item.suggestedQuantity)}` : "";
+  const stateControl = item.restockEnabled
+    ? `<button class="grocery-state-button ${item.have ? "have" : "need"}" type="button" data-grocery-action="${item.have ? "status" : "add-stock"}" aria-label="${item.have ? `${escapeHTML(item.name)} is in stock` : `Add purchased ${escapeHTML(item.name)} to inventory`}">${item.have ? "✓" : "+"}</button>`
+    : `<input class="grocery-toggle" type="checkbox" ${item.have ? "checked" : ""} aria-label="${item.have ? "Move" : "Mark"} ${escapeHTML(item.name)} ${item.have ? "to shopping list" : "as already have"}">`;
+  const recurrentAction = item.restockEnabled
+    ? item.have
+      ? `<button class="item-action" type="button" data-grocery-action="buy-now">Buy now</button>`
+      : item.buyNowOverride
+        ? `<button class="item-action" type="button" data-grocery-action="cancel-buy-now">Cancel buy now</button>`
+        : `<button class="item-action primary-action" type="button" data-grocery-action="add-stock">Add stock</button>`
+    : "";
   return `<article class="grocery-row ${item.have ? "have" : ""}" data-grocery-id="${escapeHTML(item.id)}">
-    <input class="grocery-toggle" type="checkbox" ${item.have ? "checked" : ""} aria-label="${item.have ? "Move" : "Mark"} ${escapeHTML(item.name)} ${item.have ? "to shopping list" : "as already have"}">
-    <div><p class="grocery-name">${escapeHTML(item.name)}</p><p class="grocery-meta"><span class="store-label">${escapeHTML(item.store)}</span>${quantity}</p></div>
-    <div class="item-menu"><button class="item-action" type="button" data-grocery-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-grocery-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
+    ${stateControl}
+    <div><p class="grocery-name">${escapeHTML(item.name)}</p><p class="grocery-meta"><span class="store-label">${escapeHTML(item.store)}</span>${item.restockEnabled ? '<span class="auto-restock-label">Auto restock</span>' : ""}${quantity ? `<span>${quantity}</span>` : ""}</p></div>
+    <div class="item-menu">${recurrentAction}<button class="item-action" type="button" data-grocery-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-grocery-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
   </article>`;
 }
 
@@ -273,7 +294,14 @@ function renderShoppingMode() {
     elements.shoppingList.innerHTML = emptyMarkup("Nothing to buy here", `Your ${elements.shoppingStore.value} list is complete.`);
     return;
   }
-  elements.shoppingList.innerHTML = tripItems.map((item) => `<label class="shopping-row ${item.have ? "have" : ""}" data-shopping-id="${escapeHTML(item.id)}"><input class="shopping-toggle" type="checkbox" ${item.have ? "checked" : ""}><span><strong>${escapeHTML(item.name)}</strong><span>${item.quantity ? escapeHTML(item.quantity) : item.suggestedQuantity ? `Suggested ${escapeHTML(item.suggestedQuantity)}` : "Tap when it is in your cart"}</span></span></label>`).join("");
+  elements.shoppingList.innerHTML = tripItems.map((item) => {
+    const detail = item.restockEnabled
+      ? item.suggestedQuantity ? `Add ${escapeHTML(item.suggestedQuantity)} to inventory` : `Add purchased ${escapeHTML(item.stockUnit)} to inventory`
+      : item.quantity ? escapeHTML(item.quantity) : item.suggestedQuantity ? `Suggested ${escapeHTML(item.suggestedQuantity)}` : "Tap when it is in your cart";
+    return item.restockEnabled
+      ? `<article class="shopping-row ${item.have ? "have" : ""}" data-shopping-id="${escapeHTML(item.id)}"><button class="shopping-stock-button" type="button" data-shopping-action="add-stock" aria-label="Add purchased ${escapeHTML(item.name)} to inventory">${item.have ? "✓" : "+"}</button><span><strong>${escapeHTML(item.name)}</strong><span>${detail}</span></span></article>`
+      : `<label class="shopping-row ${item.have ? "have" : ""}" data-shopping-id="${escapeHTML(item.id)}"><input class="shopping-toggle" type="checkbox" ${item.have ? "checked" : ""}><span><strong>${escapeHTML(item.name)}</strong><span>${detail}</span></span></label>`;
+  }).join("");
 }
 
 function beginStoreTrip(store) {
@@ -334,6 +362,7 @@ async function confirmBuyAgain() {
     await saveGroceryItem(db, normalizeGroceryItem({
       ...existing, id: existing?.id || tripItem.groceryItemId || makeId(), name: tripItem.name,
       quantity: tripItem.quantity || existing?.quantity || "", store: tripItem.store, have: false,
+      buyNowOverride: existing?.restockEnabled ? true : existing?.buyNowOverride || false,
       createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
     }));
   }
@@ -383,9 +412,47 @@ function fillFromTemplate(template) {
   elements.lowStockThreshold.value = template.lowStockThreshold ?? "";
   elements.targetQuantity.value = template.targetQuantity ?? "";
   elements.brand.value = template.brand; elements.barcode.value = template.barcode;
+  updateGroceryLinkSuggestion();
 }
 
-function openItemDialog(item = null) {
+function populateGroceryLinks(selectedId = "") {
+  const options = [...groceryItems].sort((a, b) => a.name.localeCompare(b.name));
+  elements.groceryLink.innerHTML = '<option value="">Not linked</option>' + options.map((grocery) =>
+    `<option value="${escapeHTML(grocery.id)}">${escapeHTML(grocery.name)} · ${escapeHTML(grocery.store)}${grocery.restockEnabled ? " · Auto restock" : ""}</option>`
+  ).join("");
+  elements.groceryLink.value = selectedId || "";
+}
+
+function applySelectedGroceryLink(prefillQuantity = false) {
+  const grocery = groceryItems.find((entry) => entry.id === elements.groceryLink.value);
+  document.querySelectorAll(".legacy-stock-field").forEach((field) => { field.hidden = Boolean(grocery?.restockEnabled); });
+  if (!grocery?.restockEnabled) return;
+  elements.unit.value = grocery.stockUnit;
+  if (prefillQuantity && !elements.quantity.value) {
+    const state = recurrentGroceryState(grocery, items);
+    elements.quantity.value = state.suggestedAmount > 0 ? state.suggestedAmount : 1;
+  }
+}
+
+function updateGroceryLinkSuggestion() {
+  suggestedGroceryId = null;
+  elements.groceryLinkSuggestion.hidden = true;
+  if (elements.groceryLink.value || !elements.itemName.value.trim()) return;
+  const suggestion = findMatchingGroceryItem({ name: elements.itemName.value }, groceryItems);
+  if (!suggestion) return;
+  suggestedGroceryId = suggestion.id;
+  elements.groceryLinkSuggestion.querySelector("span").textContent = `Suggested grocery link: ${suggestion.name} · ${suggestion.store}`;
+  elements.groceryLinkSuggestion.hidden = false;
+}
+
+function setGroceryRestockVisibility() {
+  const enabled = elements.groceryRestockEnabled.checked;
+  elements.groceryRestockSettings.hidden = !enabled;
+  elements.groceryHaveField.hidden = enabled;
+  [elements.groceryStockUnit, elements.groceryRestockThreshold, elements.groceryTargetStock].forEach((input) => { input.required = enabled; });
+}
+
+function openItemDialog(item = null, options = {}) {
   stopScanner();
   elements.itemForm.reset(); elements.formError.textContent = "";
   elements.unknownProductNotice.hidden = true;
@@ -398,23 +465,79 @@ function openItemDialog(item = null) {
   pendingNutrition = item?.nutrition || null; renderNutritionPreview();
   elements.quantity.value = item?.quantity ?? ""; elements.unit.value = item?.unit || ""; elements.location.value = item?.location || "Fridge"; elements.notes.value = item?.notes || "";
   elements.barcode.value = item?.barcode || ""; elements.brand.value = item?.brand || ""; elements.manualBarcode.value = "";
+  currentStockSetupGroceryId = options.currentStockSetup ? options.grocery?.id || null : null;
+  populateGroceryLinks(item?.groceryItemId || options.grocery?.id || "");
+  applySelectedGroceryLink(false);
+  elements.noCurrentStockButton.hidden = !currentStockSetupGroceryId;
+  if (options.grocery) {
+    elements.itemName.value = options.grocery.name;
+    applySelectedGroceryLink(Boolean(options.prefillQuantity));
+  }
   const favourite = item ? findMatchingFoodTemplate(item, foodTemplates) : null;
   elements.favoriteTemplateId.value = favourite?.id || item?.favoriteTemplateId || ""; elements.saveFavorite.checked = Boolean(favourite);
-  elements.formTitle.textContent = item ? "Edit food" : "Add food"; elements.formEyebrow.textContent = item ? "Update item" : "New item";
+  if (!item && options.grocery) {
+    const template = findMatchingFoodTemplate({ name: options.grocery.name }, foodTemplates);
+    if (template) fillFromTemplate(template);
+    elements.groceryLink.value = options.grocery.id;
+    elements.itemName.value = options.grocery.name;
+    elements.unit.value = options.grocery.stockUnit;
+    if (options.prefillQuantity) {
+      const suggestion = recurrentGroceryState(options.grocery, items).suggestedAmount;
+      elements.quantity.value = suggestion > 0 ? suggestion : (template?.quantity ?? 1);
+    }
+  }
+  elements.formTitle.textContent = options.purchase ? `Add ${options.grocery.name}` : item ? "Edit food" : "Add food";
+  elements.formEyebrow.textContent = options.purchase ? "Purchased item" : options.currentStockSetup ? "Current stock" : item ? "Update item" : "New item";
   renderFavouriteFoods(); if (item) elements.recentFoods.hidden = true; else renderRecentFoods();
+  updateGroceryLinkSuggestion();
   elements.itemDialog.showModal(); requestAnimationFrame(() => elements.itemName.focus());
+}
+
+async function resumeShoppingModeAfterItem() {
+  if (!resumeShoppingAfterItem) return;
+  resumeShoppingAfterItem = false;
+  renderShoppingMode();
+  elements.shoppingDialog.showModal();
+  await requestWakeLock();
+}
+
+async function cancelItemEntry() {
+  endRapidScanSession(); currentStockSetupGroceryId = null; purchaseGroceryId = null; elements.itemDialog.close();
+  await resumeShoppingModeAfterItem();
+}
+
+async function openPurchasedInventory(grocery, fromShopping = false) {
+  if (!grocery?.restockEnabled) return;
+  purchaseGroceryId = grocery.id;
+  resumeShoppingAfterItem = fromShopping;
+  if (fromShopping && elements.shoppingDialog.open) {
+    await releaseWakeLock();
+    elements.shoppingDialog.close();
+  }
+  openItemDialog(null, { grocery, purchase: true, prefillQuantity: true });
 }
 
 function openGroceryDialog(item = null) {
   elements.groceryForm.reset(); elements.groceryFormError.textContent = "";
   elements.groceryItemId.value = item?.id || ""; elements.groceryItemName.value = item?.name || "";
   elements.groceryQuantity.value = item?.quantity || ""; elements.groceryStore.value = item?.store || "Walmart"; elements.groceryHave.checked = item?.have || false;
+  elements.groceryRestockEnabled.checked = item?.restockEnabled || false;
+  elements.groceryStockUnit.value = item?.stockUnit || "";
+  elements.groceryRestockThreshold.value = item?.restockThreshold ?? 0;
+  elements.groceryTargetStock.value = item?.targetStock ?? "";
+  setGroceryRestockVisibility();
   elements.groceryFormTitle.textContent = item ? "Edit grocery" : "Add grocery"; elements.groceryFormEyebrow.textContent = item ? "Update shopping item" : "Shopping item";
   elements.groceryDialog.showModal(); requestAnimationFrame(() => elements.groceryItemName.focus());
 }
 
 async function refresh() {
   [items, groceryItems, foodTemplates, shoppingTrips] = await Promise.all([getItems(db), getGroceryItems(db), getFoodTemplates(db), getShoppingTrips(db)]);
+  const reconciled = groceryItems.map((grocery) => grocery.restockEnabled ? applyRecurrentGroceryState(grocery, items) : grocery);
+  const changed = reconciled.filter((grocery, index) => grocery.have !== groceryItems[index].have || grocery.suggestedQuantity !== groceryItems[index].suggestedQuantity);
+  if (changed.length) {
+    await Promise.all(changed.map((grocery) => saveGroceryItem(db, { ...grocery, updatedAt: new Date().toISOString() })));
+    groceryItems = reconciled;
+  }
   render();
 }
 
@@ -477,6 +600,7 @@ function fillProductFields(product, parsed, source) {
     : " The package expiry is not in this barcode, so please enter it before saving.";
   scannerMessage(`${source}${dateMessage}`);
   stopScannerCameraOnly();
+  updateGroceryLinkSuggestion();
   elements.itemName.focus();
 }
 
@@ -562,23 +686,21 @@ async function startScanner() {
   }
 }
 
-async function syncGroceryForItem(item, currentItems = items) {
-  const grocery = findMatchingGroceryItem(item, groceryItems);
-  if (!grocery) return null;
-  const threshold = configuredLowStockThreshold(item, currentItems, foodTemplates);
-  const stock = activeProductQuantity(item, currentItems);
-  const suggested = suggestedRestockQuantity(item, currentItems, foodTemplates);
-  const shouldHave = item.status === "frozen"
-    ? true
-    : threshold != null
-      ? stock > threshold
-      : item.status === "active" || hasActiveGroceryMatch(grocery, currentItems, item.id);
-  const suggestedQuantity = !shouldHave && suggested > 0 ? `${suggested}${item.unit ? ` ${item.unit}` : ""}` : "";
-  const changed = grocery.have !== shouldHave || grocery.suggestedQuantity !== suggestedQuantity;
-  if (changed) {
-    await saveGroceryItem(db, { ...grocery, have: shouldHave, suggestedQuantity, updatedAt: new Date().toISOString() });
-  }
-  return { grocery, changed, shouldHave, threshold, stock, suggestedQuantity };
+async function syncRecurrentGroceryById(groceryId, currentItems = items, clearBuyNow = false) {
+  const grocery = groceryItems.find((entry) => entry.id === groceryId);
+  if (!grocery?.restockEnabled) return null;
+  const source = clearBuyNow ? { ...grocery, buyNowOverride: false } : grocery;
+  const updated = applyRecurrentGroceryState(source, currentItems);
+  const changed = grocery.have !== updated.have || grocery.suggestedQuantity !== updated.suggestedQuantity || grocery.buyNowOverride !== updated.buyNowOverride;
+  if (changed) await saveGroceryItem(db, { ...updated, updatedAt: new Date().toISOString() });
+  const state = recurrentGroceryState(updated, currentItems);
+  return { grocery: updated, changed, shouldHave: state.have, threshold: updated.restockThreshold, stock: state.stock, suggestedQuantity: state.suggestedQuantity };
+}
+
+async function syncGroceryForItem(item, currentItems = items, clearBuyNow = false) {
+  const grocery = item?.groceryItemId ? groceryItems.find((entry) => entry.id === item.groceryItemId) : null;
+  if (!grocery?.restockEnabled) return null;
+  return syncRecurrentGroceryById(grocery.id, currentItems, clearBuyNow);
 }
 
 function grocerySyncSuffix(sync) {
@@ -633,7 +755,7 @@ async function handleItemAction(event) {
   if (button.dataset.action === "delete") {
     await removeItem(db, item.id);
     const nextItems = items.filter((entry) => entry.id !== item.id);
-    const sync = configuredLowStockThreshold(item, nextItems, foodTemplates) != null ? await syncGroceryForItem(item, nextItems) : null;
+    const sync = await syncGroceryForItem(item, nextItems);
     await refresh(); showToast(`${item.name} deleted${grocerySyncSuffix(sync)}`, item); return;
   }
   if (button.dataset.action === "restore") {
@@ -656,7 +778,9 @@ async function recordOutcome(status) {
     elements.outcomeDialog.close(); actionItemId = null; await refresh();
     const amount = `${outcome.completed.quantity}${outcome.completed.unit ? ` ${outcome.completed.unit}` : ""}`;
     showToast(`${amount} of ${item.name} marked ${status}${grocerySyncSuffix(sync)}`, async () => {
-      await saveItem(db, item); await removeItem(db, outcome.completed.id); await syncGroceryForItem(item, items);
+      await saveItem(db, item); await removeItem(db, outcome.completed.id);
+      const restoredItems = items.filter((entry) => entry.id !== outcome.remaining.id && entry.id !== outcome.completed.id).concat(item);
+      await syncGroceryForItem(item, restoredItems);
     });
     return;
   }
@@ -668,6 +792,7 @@ async function recordOutcome(status) {
 async function saveForm(event) {
   event.preventDefault();
   const existing = items.find((item) => item.id === elements.itemId.value);
+  const selectedGrocery = groceryItems.find((entry) => entry.id === elements.groceryLink.value) || null;
   const continueRapidScan = elements.rapidScanMode.checked && !existing;
   const item = normalizeItem({
     ...existing, id: existing?.id || makeId(), name: elements.itemName.value, expiryDate: elements.expiryDate.value,
@@ -678,22 +803,32 @@ async function saveForm(event) {
     targetQuantity: elements.targetQuantity.value,
     nutrition: pendingNutrition,
     quantity: elements.quantity.value, unit: elements.unit.value, location: elements.location.value, notes: elements.notes.value,
-    barcode: elements.barcode.value, brand: elements.brand.value,
+    barcode: elements.barcode.value, brand: elements.brand.value, groceryItemId: selectedGrocery?.id || null,
     favoriteTemplateId: elements.saveFavorite.checked ? (elements.favoriteTemplateId.value || existing?.favoriteTemplateId || makeId()) : null,
     status: existing?.status || "active", createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
   });
+  if (selectedGrocery?.restockEnabled && item.unit.trim().toLowerCase() !== selectedGrocery.stockUnit.trim().toLowerCase()) {
+    elements.formError.textContent = `Use ${selectedGrocery.stockUnit} as the unit for linked ${selectedGrocery.name} stock.`; return;
+  }
+  if (selectedGrocery?.restockEnabled && (item.quantity == null || item.quantity <= 0)) {
+    elements.formError.textContent = `Enter how many ${selectedGrocery.stockUnit} are in this inventory batch.`; return;
+  }
   const error = validateItem(item); if (error) { elements.formError.textContent = error; return; }
   const duplicate = items.find((other) => other.id !== item.id && other.status === "active" && other.name.toLowerCase() === item.name.toLowerCase() && other.expiryDate === item.expiryDate);
   if (duplicate && !confirm(`Another ${item.name} with this expiry date already exists. Save it anyway?`)) return;
-  const grocery = findMatchingGroceryItem(item, groceryItems);
-  if (grocery) item.groceryItemId = grocery.id;
+  const grocery = selectedGrocery;
   const previousTemplate = existing ? findMatchingFoodTemplate(existing, foodTemplates) : null;
   if (elements.saveFavorite.checked) {
     await saveFoodTemplate(db, normalizeFoodTemplate({ ...item, id: item.favoriteTemplateId, createdAt: previousTemplate?.createdAt }));
   } else if (previousTemplate) await removeFoodTemplate(db, previousTemplate.id);
-  await saveItem(db, item); const sync = await syncGroceryForItem(item, items.map((entry) => entry.id === item.id ? item : entry).concat(existing ? [] : [item]));
-  stopScanner(); elements.itemDialog.close(); await refresh();
+  const nextItems = items.map((entry) => entry.id === item.id ? item : entry).concat(existing ? [] : [item]);
+  await saveItem(db, item);
+  if (existing?.groceryItemId && existing.groceryItemId !== item.groceryItemId) await syncRecurrentGroceryById(existing.groceryItemId, nextItems);
+  const sync = await syncGroceryForItem(item, nextItems, true);
+  const completedPurchase = Boolean(purchaseGroceryId);
+  stopScanner(); elements.itemDialog.close(); currentStockSetupGroceryId = null; purchaseGroceryId = null; await refresh();
   showToast(grocery ? `${item.name} saved${grocerySyncSuffix(sync) || " · grocery list checked"}` : (existing ? `${item.name} updated` : `${item.name} added`));
+  if (completedPurchase) await resumeShoppingModeAfterItem();
   if (continueRapidScan) {
     openItemDialog();
     elements.rapidScanMode.checked = true;
@@ -709,25 +844,61 @@ async function saveGroceryForm(event) {
     ...existing, id: existing?.id || makeId(), name: elements.groceryItemName.value, quantity: elements.groceryQuantity.value,
     suggestedQuantity: existing?.suggestedQuantity || "",
     store: elements.groceryStore.value, have: elements.groceryHave.checked,
+    restockEnabled: elements.groceryRestockEnabled.checked,
+    stockUnit: elements.groceryStockUnit.value,
+    restockThreshold: elements.groceryRestockThreshold.value,
+    targetStock: elements.groceryTargetStock.value,
+    buyNowOverride: existing?.buyNowOverride || false,
     createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
   });
-  const linkedFood = items.find((food) => food.status === "active" && findMatchingGroceryItem(food, [item]));
-  if (linkedFood) {
-    const threshold = configuredLowStockThreshold(linkedFood, items, foodTemplates);
-    item.have = threshold == null ? true : activeProductQuantity(linkedFood, items) > threshold;
-  }
   const error = validateGroceryItem(item); if (error) { elements.groceryFormError.textContent = error; return; }
+  const incompatible = item.restockEnabled && items.find((food) => food.groceryItemId === item.id && ["active", "frozen"].includes(food.status) && food.unit.trim().toLowerCase() !== item.stockUnit.toLowerCase());
+  if (incompatible) { elements.groceryFormError.textContent = `${incompatible.name} uses ${incompatible.unit || "no unit"}. Update that inventory batch before changing this stock unit.`; return; }
   const duplicate = groceryItems.find((other) => other.id !== item.id && other.store === item.store && other.name.toLowerCase() === item.name.toLowerCase());
   if (duplicate && !confirm(`${item.name} is already listed for ${item.store}. Save another one?`)) return;
-  await saveGroceryItem(db, item); elements.groceryDialog.close(); await refresh(); showToast(existing ? `${item.name} updated` : `${item.name} added to groceries`);
+  await saveGroceryItem(db, item);
+  let workingItems = items;
+  if (item.restockEnabled && !existing?.restockEnabled) {
+    const candidates = items.filter((food) => ["active", "frozen"].includes(food.status)
+      && (!food.groceryItemId || food.groceryItemId === item.id)
+      && normalizeProductName(food.name) === normalizeProductName(item.name)
+      && (!food.unit || food.unit.trim().toLowerCase() === item.stockUnit.toLowerCase()));
+    if (candidates.length && confirm(`Link ${candidates.length} existing ${item.name} inventory ${candidates.length === 1 ? "batch" : "batches"} to automatic restocking?`)) {
+      const candidateIds = new Set(candidates.map((food) => food.id));
+      workingItems = items.map((food) => candidateIds.has(food.id) ? normalizeItem({ ...food, groceryItemId: item.id, unit: food.unit || item.stockUnit, updatedAt: new Date().toISOString() }) : food);
+      for (const food of workingItems.filter((entry) => candidateIds.has(entry.id))) await saveItem(db, food);
+    }
+  }
+  const savedItem = item.restockEnabled ? applyRecurrentGroceryState(item, workingItems) : item;
+  if (item.restockEnabled) await saveGroceryItem(db, savedItem);
+  const needsCurrentStockSetup = item.restockEnabled && !existing?.restockEnabled && Boolean(existing?.have) && recurrentGroceryState(savedItem, workingItems).stock === 0;
+  elements.groceryDialog.close(); await refresh();
+  if (needsCurrentStockSetup) openItemDialog(null, { grocery: groceryItems.find((entry) => entry.id === item.id) || savedItem, currentStockSetup: true });
+  showToast(existing ? `${item.name} updated` : `${item.name} added to groceries`);
 }
 
 async function handleGroceryClick(event) {
   const button = event.target.closest("[data-grocery-action]"); if (!button) return;
   const item = groceryItems.find((entry) => entry.id === button.closest("[data-grocery-id]")?.dataset.groceryId); if (!item) return;
   if (button.dataset.groceryAction === "edit") { openGroceryDialog(item); return; }
-  if (button.dataset.groceryAction === "delete" && confirm(`Delete ${item.name} from your reusable grocery list?`)) {
-    await removeGroceryItem(db, item.id); await refresh(); showToast(`${item.name} removed from groceries`);
+  if (button.dataset.groceryAction === "status") return;
+  if (button.dataset.groceryAction === "add-stock") { await openPurchasedInventory(item); return; }
+  if (button.dataset.groceryAction === "buy-now") {
+    const updated = applyRecurrentGroceryState({ ...item, buyNowOverride: true, updatedAt: new Date().toISOString() }, items);
+    await saveGroceryItem(db, updated); await refresh(); showToast(`${item.name} added to To buy`); return;
+  }
+  if (button.dataset.groceryAction === "cancel-buy-now") {
+    const updated = applyRecurrentGroceryState({ ...item, buyNowOverride: false, updatedAt: new Date().toISOString() }, items);
+    await saveGroceryItem(db, updated); await refresh(); showToast(`Buy now cancelled for ${item.name}`); return;
+  }
+  if (button.dataset.groceryAction === "delete") {
+    const linked = items.filter((food) => food.groceryItemId === item.id);
+    const message = item.restockEnabled
+      ? `Delete recurrent ${item.name}? ${linked.length} linked inventory ${linked.length === 1 ? "record" : "records"} will be kept and unlinked.`
+      : `Delete ${item.name} from your reusable grocery list?`;
+    if (!confirm(message)) return;
+    for (const food of linked) await saveItem(db, { ...food, groceryItemId: null, updatedAt: new Date().toISOString() });
+    await removeGroceryItem(db, item.id); await refresh(); showToast(`${item.name} removed from groceries; inventory was kept`);
   }
 }
 
@@ -771,8 +942,14 @@ async function handleShoppingToggle(event) {
   groceryItems = await getGroceryItems(db); renderGroceries(); renderShoppingMode();
 }
 
+async function handleShoppingClick(event) {
+  const button = event.target.closest("[data-shopping-action]"); if (!button) return;
+  const item = groceryItems.find((entry) => entry.id === button.closest("[data-shopping-id]")?.dataset.shoppingId); if (!item) return;
+  if (button.dataset.shoppingAction === "add-stock") await openPurchasedInventory(item, true);
+}
+
 function downloadBackup() {
-  const payload = { app: "FreshCheck", version: 6, exportedAt: new Date().toISOString(), items, groceryItems, foodTemplates, shoppingTrips };
+  const payload = { app: "FreshCheck", version: 7, exportedAt: new Date().toISOString(), items, groceryItems, foodTemplates, shoppingTrips };
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
   const link = document.createElement("a"); link.href = url; link.download = `freshcheck-backup-${todayISO()}.json`;
   document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -806,9 +983,14 @@ function bindEvents() {
     const summary = event.target.closest("[data-inventory-filter]");
     if (summary) { elements.filter.value = summary.dataset.inventoryFilter; setView("inventory"); renderInventory(); }
   });
-  $("#cancelItemButton").addEventListener("click", () => { endRapidScanSession(); elements.itemDialog.close(); });
-  $("#closeItemButton").addEventListener("click", () => { endRapidScanSession(); elements.itemDialog.close(); });
-  elements.itemDialog.addEventListener("cancel", endRapidScanSession);
+  $("#cancelItemButton").addEventListener("click", cancelItemEntry);
+  $("#closeItemButton").addEventListener("click", cancelItemEntry);
+  elements.itemDialog.addEventListener("cancel", (event) => { event.preventDefault(); cancelItemEntry(); });
+  elements.noCurrentStockButton.addEventListener("click", () => {
+    const grocery = groceryItems.find((entry) => entry.id === currentStockSetupGroceryId);
+    endRapidScanSession(); currentStockSetupGroceryId = null; elements.itemDialog.close();
+    showToast(grocery ? `${grocery.name} set to To buy with no current stock` : "No current stock saved");
+  });
   $("#scanBarcodeButton").addEventListener("click", startScanner);
   $("#stopScannerButton").addEventListener("click", stopScanner);
   $("#lookupBarcodeButton").addEventListener("click", () => lookUpBarcode(elements.manualBarcode.value));
@@ -819,6 +1001,12 @@ function bindEvents() {
   });
   $("#unknownProductContinue").addEventListener("click", () => elements.itemName.focus());
   elements.itemForm.addEventListener("submit", saveForm);
+  elements.itemName.addEventListener("input", updateGroceryLinkSuggestion);
+  elements.groceryLink.addEventListener("change", () => { applySelectedGroceryLink(false); updateGroceryLinkSuggestion(); });
+  elements.useGrocerySuggestion.addEventListener("click", () => {
+    if (!suggestedGroceryId) return;
+    elements.groceryLink.value = suggestedGroceryId; applySelectedGroceryLink(false); updateGroceryLinkSuggestion();
+  });
   [elements.todayGroups, elements.inventoryGroups, elements.historyList].forEach((container) => container.addEventListener("click", handleItemAction));
   [elements.todayGroups, elements.inventoryGroups, elements.historyList].forEach((container) => {
     container.addEventListener("pointerdown", handleSwipeStart);
@@ -842,6 +1030,7 @@ function bindEvents() {
     elements.targetQuantity.value = template.targetQuantity ?? "";
     elements.brand.value = template.brand || ""; elements.barcode.value = template.barcode || "";
     pendingNutrition = template.nutrition || null; renderNutritionPreview();
+    updateGroceryLinkSuggestion();
   });
   elements.favoriteFoodButtons.addEventListener("click", async (event) => {
     const removeButton = event.target.closest("[data-remove-template-id]");
@@ -871,6 +1060,7 @@ function bindEvents() {
   elements.shoppingDialog.addEventListener("cancel", (event) => { event.preventDefault(); closeShoppingMode(); });
   elements.shoppingStore.addEventListener("change", () => beginStoreTrip(elements.shoppingStore.value));
   elements.shoppingList.addEventListener("change", handleShoppingToggle);
+  elements.shoppingList.addEventListener("click", handleShoppingClick);
   elements.recentTrips.addEventListener("click", (event) => {
     const button = event.target.closest("[data-buy-again-id]"); if (!button) return;
     const trip = shoppingTrips.find((entry) => entry.id === button.dataset.buyAgainId); if (trip) openBuyAgain(trip);
@@ -883,6 +1073,7 @@ function bindEvents() {
   });
   $("#closeGroceryButton").addEventListener("click", () => elements.groceryDialog.close());
   $("#cancelGroceryButton").addEventListener("click", () => elements.groceryDialog.close());
+  elements.groceryRestockEnabled.addEventListener("change", setGroceryRestockVisibility);
   elements.groceryForm.addEventListener("submit", saveGroceryForm);
   elements.groceryList.addEventListener("click", handleGroceryClick);
   elements.groceryList.addEventListener("change", handleGroceryToggle);
