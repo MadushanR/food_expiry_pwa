@@ -180,6 +180,14 @@ test("recurrent grocery state uses threshold, target, and buy-now override", () 
   assert.equal(applyRecurrentGroceryState(grocery, twoEggs).have, false);
 });
 
+test("partial use and deletion move recurrent stock across its minimum", () => {
+  const grocery = normalizeGroceryItem({ id: "eggs", name: "Eggs", restockEnabled: true, stockUnit: "eggs", restockThreshold: 2, targetStock: 12 });
+  const batch = normalizeItem({ id: "egg-batch", name: "Eggs", groceryItemId: "eggs", quantity: 4, unit: "eggs", expiry: "2026-10-01" });
+  const partial = createOutcomeRecords(batch, "used", 2, "2026-09-24T12:00:00Z", "used-eggs");
+  assert.equal(recurrentGroceryState(grocery, [partial.remaining, partial.completed]).needsBuy, true);
+  assert.equal(recurrentGroceryState(grocery, []).suggestedQuantity, "12 eggs");
+});
+
 test("after-opening lifetime uses the earlier of its use-by date and label expiry", () => {
   const opened = normalizeItem({ name: "Milk", expiry: "2026-10-20", openedDate: "2026-09-20", afterOpeningDays: 7 });
   const labelSooner = normalizeItem({ name: "Milk", expiry: "2026-09-24", openedDate: "2026-09-20", afterOpeningDays: 7 });

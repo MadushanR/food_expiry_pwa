@@ -4,8 +4,8 @@ This file is the hand-off source of truth for recurrent inventory and grocery sy
 
 ## Status
 
-- **In progress — Phase 3: buying and synchronization workflows**
-- Completed: 2 / 4
+- **In progress — Phase 4: compatibility and release verification**
+- Completed: 3 / 4
 - Last updated: 2026-09-24
 
 ## Phase 1 — Data model and stock rules
@@ -26,12 +26,12 @@ This file is the hand-off source of truth for recurrent inventory and grocery sy
 
 ## Phase 3 — Buying and synchronization workflows
 
-- [ ] Show recurrent stock and suggested purchase quantities in Grocery and Shopping Mode.
-- [ ] Add a manual Buy now override without allowing a false manual Have state.
-- [ ] Open the inventory form when a recurrent product is marked bought.
-- [ ] Leave it To buy when entry is cancelled; clear the override and recalculate only after save.
-- [ ] Recalculate after add, edit, partial/full use, waste, delete, freeze, thaw, restore, and undo.
-- [ ] Warn before deleting a recurrent grocery and unlink inventory without deleting it.
+- [x] Show recurrent stock and suggested purchase quantities in Grocery and Shopping Mode.
+- [x] Add a manual Buy now override without allowing a false manual Have state.
+- [x] Open the inventory form when a recurrent product is marked bought.
+- [x] Leave it To buy when entry is cancelled; clear the override and recalculate only after save.
+- [x] Recalculate after add, edit, partial/full use, waste, delete, freeze, thaw, restore, and undo.
+- [x] Warn before deleting a recurrent grocery and unlink inventory without deleting it.
 
 ## Phase 4 — Compatibility and release verification
 
