@@ -4,7 +4,7 @@ This file is the hand-off source of truth for recurrent inventory and grocery sy
 
 ## Status
 
-- **In progress — Phase 4: compatibility and release verification**
+- **In progress — Phase 4: pull request preparation**
 - Completed: 3 / 4
 - Last updated: 2026-09-24
 
@@ -35,10 +35,10 @@ This file is the hand-off source of truth for recurrent inventory and grocery sy
 
 ## Phase 4 — Compatibility and release verification
 
-- [ ] Increment the IndexedDB and backup schema versions while restoring older backups.
-- [ ] Refresh offline caching, README, and in-app help text.
-- [ ] Run all automated and syntax checks.
-- [ ] Visually verify phone-sized light and dark layouts and the core recurrent workflow.
+- [x] Increment the IndexedDB and backup schema versions while restoring older backups.
+- [x] Refresh offline caching, README, and in-app help text.
+- [x] Run all automated and syntax checks.
+- [x] Visually verify phone-sized light and dark layouts and the core recurrent workflow.
 - [ ] Push the branch and open a pull request with test evidence.
 
 ## Confirmed behavior

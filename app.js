@@ -169,8 +169,8 @@ function historyItemMarkup(item) {
 function groceryItemMarkup(item) {
   const recurrent = item.restockEnabled ? recurrentGroceryState(item, items) : null;
   const quantity = recurrent
-    ? ` · ${escapeHTML(recurrent.stock)} of ${escapeHTML(item.targetStock)} ${escapeHTML(item.stockUnit)}${recurrent.suggestedQuantity ? ` · Buy ${escapeHTML(recurrent.suggestedQuantity)}` : ""}`
-    : item.quantity ? ` · ${escapeHTML(item.quantity)}` : item.suggestedQuantity ? ` · Suggested ${escapeHTML(item.suggestedQuantity)}` : "";
+    ? `${escapeHTML(recurrent.stock)} of ${escapeHTML(item.targetStock)} ${escapeHTML(item.stockUnit)}${recurrent.suggestedQuantity ? ` · Buy ${escapeHTML(recurrent.suggestedQuantity)}` : ""}`
+    : item.quantity ? escapeHTML(item.quantity) : item.suggestedQuantity ? `Suggested ${escapeHTML(item.suggestedQuantity)}` : "";
   const stateControl = item.restockEnabled
     ? `<button class="grocery-state-button ${item.have ? "have" : "need"}" type="button" data-grocery-action="${item.have ? "status" : "add-stock"}" aria-label="${item.have ? `${escapeHTML(item.name)} is in stock` : `Add purchased ${escapeHTML(item.name)} to inventory`}">${item.have ? "✓" : "+"}</button>`
     : `<input class="grocery-toggle" type="checkbox" ${item.have ? "checked" : ""} aria-label="${item.have ? "Move" : "Mark"} ${escapeHTML(item.name)} ${item.have ? "to shopping list" : "as already have"}">`;
@@ -183,7 +183,7 @@ function groceryItemMarkup(item) {
     : "";
   return `<article class="grocery-row ${item.have ? "have" : ""}" data-grocery-id="${escapeHTML(item.id)}">
     ${stateControl}
-    <div><p class="grocery-name">${escapeHTML(item.name)}</p><p class="grocery-meta"><span class="store-label">${escapeHTML(item.store)}</span>${item.restockEnabled ? '<span class="auto-restock-label">Auto restock</span>' : ""}${quantity}</p></div>
+    <div><p class="grocery-name">${escapeHTML(item.name)}</p><p class="grocery-meta"><span class="store-label">${escapeHTML(item.store)}</span>${item.restockEnabled ? '<span class="auto-restock-label">Auto restock</span>' : ""}${quantity ? `<span>${quantity}</span>` : ""}</p></div>
     <div class="item-menu">${recurrentAction}<button class="item-action" type="button" data-grocery-action="edit" aria-label="Edit ${escapeHTML(item.name)}">Edit</button><button class="item-action destructive" type="button" data-grocery-action="delete" aria-label="Delete ${escapeHTML(item.name)}">Delete</button></div>
   </article>`;
 }
@@ -949,7 +949,7 @@ async function handleShoppingClick(event) {
 }
 
 function downloadBackup() {
-  const payload = { app: "FreshCheck", version: 6, exportedAt: new Date().toISOString(), items, groceryItems, foodTemplates, shoppingTrips };
+  const payload = { app: "FreshCheck", version: 7, exportedAt: new Date().toISOString(), items, groceryItems, foodTemplates, shoppingTrips };
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
   const link = document.createElement("a"); link.href = url; link.download = `freshcheck-backup-${todayISO()}.json`;
   document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);

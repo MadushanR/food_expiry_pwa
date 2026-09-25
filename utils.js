@@ -95,6 +95,7 @@ export function swipeDirection(startX, startY, endX, endY, threshold = 70) {
 }
 
 export function normalizeNutrition(raw = {}) {
+  raw ||= {};
   const numberOrNull = (value) => value === "" || value == null || !Number.isFinite(Number(value)) ? null : Number(value);
   return {
     energyKcal: numberOrNull(raw.energyKcal), protein: numberOrNull(raw.protein), carbohydrates: numberOrNull(raw.carbohydrates),

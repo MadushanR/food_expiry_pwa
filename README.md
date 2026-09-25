@@ -23,6 +23,9 @@ FreshCheck is a private, local-first Progressive Web App for tracking food expir
 - Seeds the provided regular shopping list once and remembers To buy / Already have status
 - Keeps groceries in sync: added/restored food is marked Have, while the last used/wasted match returns to To buy
 - Supports low-stock levels, target quantities, suggested restock amounts, focused Shopping Mode, and reusable shopping trips
+- Lets selected staple groceries use linked inventory as their source of truth: configure one stock unit, a minimum, and a target; active and frozen batches count toward stock
+- Moves recurrent products to To buy at their minimum, suggests the amount needed to refill the target, and supports an early Buy now override
+- Opens a short quantity-and-expiry inventory form when a recurrent product is bought, including from Shopping Mode
 - Supports System, Light, and Dark appearance with a muted sage-and-brown palette
 - Adds touch swipe shortcuts while retaining visible buttons and keyboard access
 - Search, filter, and sort the inventory

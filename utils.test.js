@@ -141,6 +141,11 @@ test("grocery items normalize and validate independently from food inventory", (
   assert.equal(validateGroceryItem(normalizeGroceryItem({ name: "", store: "Walmart" })), "Enter an item name.");
 });
 
+test("items without nutrition data normalize safely", () => {
+  const item = normalizeItem({ name: "Eggs", expiry: "2026-10-01", nutrition: null });
+  assert.equal(hasNutrition(item.nutrition), false);
+});
+
 test("legacy groceries keep manual behavior with recurrence disabled", () => {
   const legacy = normalizeGroceryItem({ id: "eggs", name: "Eggs", store: "Walmart", have: true });
   assert.equal(legacy.restockEnabled, false);

@@ -57,6 +57,7 @@ button.summary-card { cursor: pointer; }
 .secondary-button { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
 .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; margin: 22px 0 24px; }
 .history-toolbar { display: flex; justify-content: flex-end; margin: -12px 0 22px; }
+.view-helper { margin: 10px 2px 0; color: var(--muted); font-size: .8rem; line-height: 1.45; }
 input, select, textarea {
   width: 100%; min-height: 46px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--surface); color: var(--text); padding: 10px 12px; font-size: 16px;
@@ -132,7 +133,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .grocery-state-button.have { background: var(--surface-muted); color: var(--accent); }
 .auto-restock-label { color: var(--accent-strong); font-weight: 750; }
 .grocery-name { font-weight: 750; }
-.grocery-meta { margin-top: 3px; color: var(--muted); font-size: .8rem; }
+.grocery-meta { display: flex; flex-wrap: wrap; gap: 3px 9px; margin-top: 3px; color: var(--muted); font-size: .8rem; }
 .store-label { color: var(--brown); font-weight: 700; }
 .empty-state { padding: 48px 20px; border: 1px dashed var(--line); border-radius: var(--radius); color: var(--muted); text-align: center; }
 .empty-state strong { display: block; margin-bottom: 8px; color: var(--text); font-size: 1.05rem; }
@@ -238,6 +239,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
   .search-field { grid-column: 1 / -1; }
   .toolbar select { width: 100%; }
   .food-item { grid-template-columns: 1fr; }
+  .grocery-row { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  .grocery-row > .item-menu { grid-column: 2; justify-content: flex-start; }
   .item-menu { justify-content: flex-start; }
   .form-grid { grid-template-columns: 1fr; }
   .scan-row { align-items: flex-start; flex-direction: column; }

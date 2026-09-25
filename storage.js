@@ -2,7 +2,7 @@ import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 import { normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip } from "./utils.js";
 
 const DB_NAME = "freshcheck";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const ITEM_STORE = "items";
 const META_STORE = "meta";
 const GROCERY_STORE = "groceryItems";
