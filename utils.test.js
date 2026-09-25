@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   addDaysISO, createOutcomeRecords, daysUntil, effectiveExpiryDate, expiryState, findMatchingFoodTemplate, findMatchingGroceryItem, groupActiveItems,
-  activeProductQuantity, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, hasNutrition, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
+  activeProductQuantity, applyRecurrentGroceryState, calendarGridDates, configuredLowStockThreshold, configuredTargetQuantity, hasActiveGroceryMatch, hasNutrition, isLowStock, normalizeFoodTemplate, normalizeGroceryItem, normalizeItem, normalizeShoppingTrip, nutritionFromOpenFoodFacts, outcomeCounts,
   parseGS1Barcode, parseLocalDate, parsePackageQuantity, recentFoodTemplates, registerRapidBarcode,
-  relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, swipeDirection, unknownProductDraft, useFirstPriority, useItUpSuggestions, validateGroceryItem, validateItem
+  recurrentGroceryState, recurrentStock, relativeExpiry, shoppingProgress, storageGuidance, suggestFreezeByDate, suggestedRestockQuantity, suggestThawUseByDate, swipeDirection, unknownProductDraft, useFirstPriority, useItUpSuggestions, validateGroceryItem, validateItem
 } from "./utils.js";
 import { DEFAULT_GROCERY_ITEMS } from "./grocery-data.js";
 
@@ -139,6 +139,45 @@ test("grocery items normalize and validate independently from food inventory", (
   assert.equal(item.quantity, "2");
   assert.equal(validateGroceryItem(item), "");
   assert.equal(validateGroceryItem(normalizeGroceryItem({ name: "", store: "Walmart" })), "Enter an item name.");
+});
+
+test("legacy groceries keep manual behavior with recurrence disabled", () => {
+  const legacy = normalizeGroceryItem({ id: "eggs", name: "Eggs", store: "Walmart", have: true });
+  assert.equal(legacy.restockEnabled, false);
+  assert.equal(legacy.restockThreshold, 0);
+  assert.equal(legacy.targetStock, null);
+  assert.equal(recurrentGroceryState(legacy, []).have, true);
+});
+
+test("recurrent groceries validate unit, minimum, and target", () => {
+  assert.match(validateGroceryItem(normalizeGroceryItem({ name: "Eggs", restockEnabled: true, targetStock: 12 })), /stock unit/);
+  assert.match(validateGroceryItem(normalizeGroceryItem({ name: "Eggs", restockEnabled: true, stockUnit: "eggs", restockThreshold: -1, targetStock: 12 })), /zero or more/);
+  assert.match(validateGroceryItem(normalizeGroceryItem({ name: "Eggs", restockEnabled: true, stockUnit: "eggs", restockThreshold: 2, targetStock: 2 })), /greater than the minimum/);
+  assert.equal(validateGroceryItem(normalizeGroceryItem({ name: "Eggs", restockEnabled: true, stockUnit: "eggs", restockThreshold: 2, targetStock: 12 })), "");
+});
+
+test("recurrent stock counts linked active and frozen batches in the chosen unit", () => {
+  const grocery = normalizeGroceryItem({ id: "eggs", name: "Eggs", restockEnabled: true, stockUnit: "eggs", targetStock: 12 });
+  const foods = [
+    normalizeItem({ name: "Eggs", groceryItemId: "eggs", quantity: 4, unit: "eggs", status: "active", expiry: "2026-09-01" }),
+    normalizeItem({ name: "Eggs", groceryItemId: "eggs", quantity: 3, unit: "eggs", status: "frozen", expiry: "2026-10-01" }),
+    normalizeItem({ name: "Eggs", groceryItemId: "eggs", quantity: 5, unit: "eggs", status: "used", expiry: "2026-09-01" }),
+    normalizeItem({ name: "Egg carton", groceryItemId: "eggs", quantity: 1, unit: "carton", status: "active", expiry: "2026-10-01" }),
+    normalizeItem({ name: "Other eggs", groceryItemId: "other", quantity: 9, unit: "eggs", status: "active", expiry: "2026-10-01" }),
+  ];
+  assert.equal(recurrentStock(grocery, foods), 7);
+});
+
+test("recurrent grocery state uses threshold, target, and buy-now override", () => {
+  const grocery = normalizeGroceryItem({ id: "eggs", name: "Eggs", restockEnabled: true, stockUnit: "eggs", restockThreshold: 2, targetStock: 12 });
+  const fourEggs = [normalizeItem({ name: "Eggs", groceryItemId: "eggs", quantity: 4, unit: "eggs", expiry: "2026-09-01" })];
+  assert.deepEqual(recurrentGroceryState(grocery, fourEggs), { stock: 4, have: true, needsBuy: false, suggestedAmount: null, suggestedQuantity: "" });
+  const twoEggs = [normalizeItem({ name: "Eggs", groceryItemId: "eggs", quantity: 2, unit: "eggs", expiry: "2026-09-01" })];
+  assert.deepEqual(recurrentGroceryState(grocery, twoEggs), { stock: 2, have: false, needsBuy: true, suggestedAmount: 10, suggestedQuantity: "10 eggs" });
+  const overridden = recurrentGroceryState({ ...grocery, buyNowOverride: true }, fourEggs);
+  assert.equal(overridden.needsBuy, true);
+  assert.equal(overridden.suggestedQuantity, "8 eggs");
+  assert.equal(applyRecurrentGroceryState(grocery, twoEggs).have, false);
 });
 
 test("after-opening lifetime uses the earlier of its use-by date and label expiry", () => {

@@ -308,6 +308,7 @@ export function calendarGridDates(year, monthIndex) {
 
 export function normalizeGroceryItem(raw = {}) {
   const now = new Date().toISOString();
+  const numberOrNull = (value) => value === "" || value == null ? null : Number(value);
   return {
     id: String(raw.id || makeId()),
     name: String(raw.name || "").trim(),
@@ -315,6 +316,11 @@ export function normalizeGroceryItem(raw = {}) {
     suggestedQuantity: String(raw.suggestedQuantity || "").trim(),
     store: String(raw.store || "Other").trim() || "Other",
     have: Boolean(raw.have),
+    restockEnabled: Boolean(raw.restockEnabled),
+    stockUnit: String(raw.stockUnit || "").trim(),
+    restockThreshold: numberOrNull(raw.restockThreshold) ?? 0,
+    targetStock: numberOrNull(raw.targetStock),
+    buyNowOverride: Boolean(raw.buyNowOverride),
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || now,
   };
@@ -323,7 +329,42 @@ export function normalizeGroceryItem(raw = {}) {
 export function validateGroceryItem(item) {
   if (!item.name) return "Enter an item name.";
   if (!item.store) return "Choose a store.";
+  if (item.restockEnabled && !item.stockUnit) return "Choose one stock unit for automatic restocking.";
+  if (item.restockEnabled && (!Number.isFinite(item.restockThreshold) || item.restockThreshold < 0)) return "Minimum stock must be zero or more.";
+  if (item.restockEnabled && (!Number.isFinite(item.targetStock) || item.targetStock <= item.restockThreshold)) return "Target stock must be greater than the minimum.";
   return "";
+}
+
+function normalizedUnit(value = "") {
+  return String(value).trim().toLowerCase();
+}
+
+export function recurrentStock(grocery, foods = []) {
+  if (!grocery?.id) return 0;
+  const unit = normalizedUnit(grocery.stockUnit);
+  return foods
+    .filter((food) => food.groceryItemId === grocery.id && ["active", "frozen"].includes(food.status))
+    .filter((food) => !unit || normalizedUnit(food.unit) === unit)
+    .reduce((total, food) => total + (food.quantity == null ? 1 : Number(food.quantity)), 0);
+}
+
+export function recurrentGroceryState(grocery, foods = []) {
+  const normalized = normalizeGroceryItem(grocery);
+  if (!normalized.restockEnabled) {
+    return { stock: 0, have: normalized.have, needsBuy: !normalized.have, suggestedAmount: null, suggestedQuantity: normalized.suggestedQuantity };
+  }
+  const stock = recurrentStock(normalized, foods);
+  const needsBuy = normalized.buyNowOverride || stock <= normalized.restockThreshold;
+  const suggestedAmount = needsBuy && normalized.targetStock != null ? Math.max(0, normalized.targetStock - stock) : null;
+  const suggestedQuantity = suggestedAmount > 0 ? `${suggestedAmount}${normalized.stockUnit ? ` ${normalized.stockUnit}` : ""}` : "";
+  return { stock, have: !needsBuy, needsBuy, suggestedAmount, suggestedQuantity };
+}
+
+export function applyRecurrentGroceryState(grocery, foods = []) {
+  const normalized = normalizeGroceryItem(grocery);
+  if (!normalized.restockEnabled) return normalized;
+  const state = recurrentGroceryState(normalized, foods);
+  return normalizeGroceryItem({ ...normalized, have: state.have, suggestedQuantity: state.suggestedQuantity });
 }
 
 export function validateItem(item) {
