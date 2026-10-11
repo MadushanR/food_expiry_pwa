@@ -140,7 +140,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .empty-state .primary-button { margin-top: 18px; }
 .bottom-nav {
   position: fixed; z-index: 8; left: 50%; bottom: 0; transform: translateX(-50%);
-  display: grid; grid-template-columns: 1fr 1fr 64px 1fr 1fr; align-items: end;
+  display: grid; grid-template-columns: 1fr 64px 1fr 1fr; align-items: end;
   width: min(760px, 100%); min-height: calc(70px + env(safe-area-inset-bottom));
   padding: 8px max(12px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   border-top: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(16px);

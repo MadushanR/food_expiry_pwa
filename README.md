@@ -4,34 +4,16 @@ FreshCheck is a private, local-first Progressive Web App for tracking food expir
 
 ## Features
 
-- Groups active food into Expired, Use soon, and Later
-- Opens on a focused Today view for expired, due-today, and next-three-day items
-- Stores inventory in IndexedDB and migrates the original `localStorage` records automatically
-- Add food manually or scan UPC, EAN, QR, and GS1 barcodes with the device camera
-- Fill product name, brand, and package size from Open Food Facts; GS1 dates are filled when present
-- Add and edit names, dates, quantities, units, locations, brands, barcodes, and notes
-- Save favourite food templates and scan several packages in one rapid-entry session
-- Keep an unknown barcode when online product lookup fails, then finish the item manually
-- Track opened dates, after-opening lifetimes, freeze-by suggestions, and thawed food
-- See use-first priorities, an expiry calendar, Health Canada storage guidance, and private use-it-up ideas
-- Save available nutrition details and Nutri-Score from Open Food Facts with clear source notices
-- Mark food as used, wasted, or frozen, then restore it from History
-- Record partial amounts used or wasted while keeping the remaining stock active
-- Shows a lightweight 30-day outcome summary
-- Offers recent-food shortcuts for faster repeat entry
-- Includes a reusable grocery list grouped by Walmart, Dollarama, or another store
-- Seeds the provided regular shopping list once and remembers To buy / Already have status
-- Keeps groceries in sync: added/restored food is marked Have, while the last used/wasted match returns to To buy
-- Supports low-stock levels, target quantities, suggested restock amounts, focused Shopping Mode, and reusable shopping trips
-- Lets selected staple groceries use linked inventory as their source of truth: configure one stock unit, a minimum, and a target; active and frozen batches count toward stock
-- Moves recurrent products to To buy at their minimum, suggests the amount needed to refill the target, and supports an early Buy now override
-- Opens a short quantity-and-expiry inventory form when a recurrent product is bought, including from Shopping Mode
-- Supports System, Light, and Dark appearance with a muted sage-and-brown palette
-- Adds touch swipe shortcuts while retaining visible buttons and keyboard access
-- Search, filter, and sort the inventory
-- Export and restore a complete JSON backup
-- Offline app shell, explicit update prompt, light/dark mode, and iPhone safe-area support
-- Automated tests run for every pull request
+- Inventory is the home screen, grouped by expiry with search, filters, and sorting.
+- Add food using barcode scanning or recently added products, then enter its expiry date.
+- Keep scanning after each saved item for faster repeat entry.
+- Product name, brand, package size, and nutrition are filled from barcode lookup when available.
+- A single Automatic restock checkbox adds a food item to Groceries when marked Used.
+- Choose stores in Groceries; existing store choices are retained when the item needs buying again.
+- Grocery purchases use a simple checklist, with shopping mode and previous trips.
+- Record Used, Wasted, or Frozen outcomes; undo changes and restore food from History.
+- An expiry calendar, dark mode, local storage, and backup and restore remain available.
+- The app works offline; barcode lookup needs a connection unless the product is already saved locally.
 
 ## Run locally
 

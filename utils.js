@@ -63,6 +63,7 @@ export function normalizeItem(raw = {}) {
     notes: String(raw.notes || "").trim(),
     barcode: String(raw.barcode || "").trim(),
     brand: String(raw.brand || "").trim(),
+    restockEnabled: Boolean(raw.restockEnabled),
     groceryItemId: raw.groceryItemId ? String(raw.groceryItemId) : null,
     favoriteTemplateId: raw.favoriteTemplateId ? String(raw.favoriteTemplateId) : null,
     sourceItemId: raw.sourceItemId ? String(raw.sourceItemId) : null,
@@ -314,6 +315,7 @@ export function normalizeGroceryItem(raw = {}) {
     id: String(raw.id || makeId()),
     name: String(raw.name || "").trim(),
     quantity: String(raw.quantity || "").trim(),
+    barcode: String(raw.barcode || "").trim(),
     suggestedQuantity: String(raw.suggestedQuantity || "").trim(),
     store: String(raw.store || "Other").trim() || "Other",
     have: Boolean(raw.have),
@@ -492,4 +494,16 @@ export function recentFoodTemplates(items, limit = 6) {
       return true;
     })
     .slice(0, limit);
+}
+
+// Restocking is triggered only by marking an opted-in inventory item Used.
+export function automaticRestockGrocery(food, groceries = []) {
+  if (!food.restockEnabled || food.status !== "used") return null;
+  const existing = groceries.find((grocery) => food.barcode && grocery.barcode === food.barcode)
+    || groceries.find((grocery) => normalizeProductName(grocery.name) === normalizeProductName(food.name));
+  return normalizeGroceryItem({
+    ...existing, id: existing?.id || makeId(), name: existing?.name || food.name,
+    barcode: food.barcode, store: existing?.store || "Choose store", have: false,
+    restockEnabled: false, suggestedQuantity: "", updatedAt: new Date().toISOString(),
+  });
 }
