@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" id="themeColor" content="#f3f0e7">
+  <meta name="theme-color" id="themeColor" content="#f7f4ed">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="FreshCheck">
@@ -12,33 +12,38 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
   <link rel="icon" href="./icons/icon-192.png">
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?v=11">
 </head>
 <body>
   <a class="skip-link" href="#mainContent">Skip to content</a>
   <div class="app-shell">
     <header class="app-header">
       <div class="brand-lockup">
-        <img class="app-logo" src="./icons/logo.png" width="52" height="52" alt="">
-        <div><p class="eyebrow">Your kitchen</p><h1>FreshCheck</h1></div>
+        <h1>FreshCheck</h1>
       </div>
       <button class="icon-button" id="dataButton" type="button" aria-label="Backup and restore" title="Backup and restore"><span aria-hidden="true">•••</span></button>
     </header>
 
     <main id="mainContent">
       <section class="app-view" id="inventoryView" data-view="inventory" aria-labelledby="inventoryHeading">
-        <div class="view-heading"><div><p class="eyebrow">Everything active</p><h2 id="inventoryHeading">Inventory</h2></div><div class="heading-actions"><button class="secondary-button" id="calendarButton" type="button">Calendar</button><button class="primary-button add-button" type="button">Add food</button></div></div>
-        <div class="toolbar">
-          <label class="search-field"><span class="sr-only">Search food</span><input id="searchInput" type="search" placeholder="Search food" autocomplete="off"></label>
-          <label><span class="sr-only">Filter inventory</span><select id="filterSelect"><option value="active">All active</option><option value="expired">Expired</option><option value="today">Today</option><option value="soon">Next 3 days</option><option value="later">Later</option><option value="Fridge">Fridge</option><option value="Freezer">Freezer</option><option value="Pantry">Pantry</option></select></label>
-          <label><span class="sr-only">Sort inventory</span><select id="sortSelect"><option value="use-first">Use first</option><option value="expiry">Expiry date</option><option value="name">Name</option><option value="recent">Recently added</option></select></label>
+        <div class="view-heading"><h2 id="inventoryHeading">Inventory</h2><button class="primary-button add-button" type="button"><span class="button-plus" aria-hidden="true">+</span> Add item</button></div>
+        <div class="toolbar inventory-toolbar">
+          <label class="search-field"><span class="sr-only">Search food</span><svg class="search-symbol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="searchInput" type="search" placeholder="Search food…" autocomplete="off"></label>
+          <details class="inventory-filters">
+            <summary aria-label="Filter and sort inventory"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></svg></summary>
+            <div class="filter-panel">
+              <label class="field"><span>Show</span><select id="filterSelect"><option value="active">All active</option><option value="expired">Expired</option><option value="today">Today</option><option value="soon">Next 3 days</option><option value="later">Later</option><option value="Fridge">Fridge</option><option value="Freezer">Freezer</option><option value="Pantry">Pantry</option></select></label>
+              <label class="field"><span>Sort by</span><select id="sortSelect"><option value="use-first">Use first</option><option value="expiry">Expiry date</option><option value="name">Name</option><option value="recent">Recently added</option></select></label>
+              <button class="secondary-button" id="calendarButton" type="button">Expiry calendar</button>
+            </div>
+          </details>
         </div>
-        <p class="gesture-hint">On touch screens, swipe left to act or right to edit. The visible buttons always work too.</p>
         <div id="inventoryGroups" class="inventory-groups" aria-live="polite"></div>
       </section>
 
       <section class="app-view" id="groceryView" data-view="grocery" aria-labelledby="groceryHeading" hidden>
-        <div class="view-heading"><div><p class="eyebrow">Next shopping trip</p><h2 id="groceryHeading">Grocery list</h2></div><div class="heading-actions"><button class="secondary-button" id="startShoppingButton" type="button">Start shopping</button><button class="primary-button" id="addGroceryButton" type="button">Add item</button></div></div>
+        <div class="view-heading"><h2 id="groceryHeading">Groceries</h2><button class="primary-button" id="addGroceryButton" type="button"><span class="button-plus" aria-hidden="true">+</span> Add item</button></div>
+        <div class="shopping-launch"><button class="secondary-button" id="startShoppingButton" type="button">Start shopping</button></div>
         <p class="view-helper">Items marked Used with automatic restock appear here. Choose a store for each item.</p>
         <div class="summary" aria-label="Grocery shopping summary">
           <div class="summary-card warning"><strong id="toBuyCount">0</strong><span>To buy</span></div>
@@ -55,7 +60,7 @@
       </section>
 
       <section class="app-view" id="historyView" data-view="history" aria-labelledby="historyHeading" hidden>
-        <div class="view-heading"><div><p class="eyebrow">Last 30 days</p><h2 id="historyHeading">History</h2></div></div>
+        <div class="view-heading"><h2 id="historyHeading">History</h2></div>
         <div class="summary history-summary" aria-label="Food outcomes in the last 30 days">
           <div class="summary-card"><strong id="usedCount">0</strong><span>Used</span></div>
           <div class="summary-card warning"><strong id="wastedCount">0</strong><span>Wasted</span></div>
@@ -68,10 +73,9 @@
   </div>
 
   <nav class="bottom-nav" aria-label="Primary navigation">
-    <button type="button" data-nav="inventory" aria-current="page"><span class="nav-symbol" aria-hidden="true">▤</span><span>Inventory</span></button>
-    <button class="nav-add add-button" type="button" aria-label="Add food"><span aria-hidden="true">+</span></button>
-    <button type="button" data-nav="grocery"><span class="nav-symbol" aria-hidden="true">✓</span><span>Groceries</span></button>
-    <button type="button" data-nav="history"><span class="nav-symbol" aria-hidden="true">↺</span><span>History</span></button>
+    <button type="button" data-nav="inventory" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h13M8 12h13M8 19h13"/><circle cx="3" cy="5" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="19" r="1"/></svg><span>Inventory</span></button>
+    <button type="button" data-nav="grocery"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h3l3 13h11l3-9H6M9 20h.01M18 20h.01"/></svg><span>Groceries</span></button>
+    <button type="button" data-nav="history"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 6v6h5"/></svg><span>History</span></button>
   </nav>
 
   <dialog id="itemDialog" class="app-dialog">
@@ -184,6 +188,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden><span id="toastMessage"></span><button id="undoButton" type="button">Undo</button></div>
   <div id="updateBanner" class="update-banner" hidden><span>A fresh version is ready.</span><button id="updateButton" type="button">Update</button></div>
   <script src="./vendor/zxing-browser.min.js"></script>
-  <script type="module" src="./app.js?v=10"></script>
+  <script type="module" src="./app.js?v=11"></script>
 </body>
 </html>
