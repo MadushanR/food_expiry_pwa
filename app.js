@@ -71,7 +71,7 @@ function applyTheme(preference = localStorage.getItem("freshcheckTheme") || "sys
   else document.documentElement.dataset.theme = preference;
   localStorage.setItem("freshcheckTheme", preference);
   const dark = preference === "dark" || (preference === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
-  $("#themeColor").content = dark ? "#181a16" : "#f3f0e7";
+  $("#themeColor").content = dark ? "#211f1c" : "#f7f4ed";
   if (elements.themeSelect) elements.themeSelect.value = preference;
 }
 
@@ -122,10 +122,11 @@ function activeItemMarkup(item) {
   const nutrition = hasNutrition(item.nutrition) ? nutritionMarkup(item.nutrition) : "";
   return `<article class="food-item ${expiryState(useBy)}" data-id="${escapeHTML(item.id)}">
     <div><p class="food-name">${escapeHTML(item.name)}</p>
-      <div class="food-meta"><span class="expiry-label">${escapeHTML(relativeExpiry(useBy))}</span><span>${escapeHTML(formatDate(useBy))}</span>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}${item.restockEnabled ? '<span class="auto-restock-label">Auto restock</span>' : ""}</div>
+      <div class="food-meta"><time class="expiry-label" datetime="${escapeHTML(useBy)}" title="${escapeHTML(formatDate(useBy))}">${escapeHTML(relativeExpiry(useBy))}</time>${item.brand ? `<span>${escapeHTML(item.brand)}</span>` : ""}</div>
+      ${item.restockEnabled ? '<p class="restock-note">Auto restock</p>' : ""}
       ${nutrition ? `<details class="storage-guidance"><summary>Product information</summary><div class="nutrition-grid">${nutrition}</div></details>` : ""}
     </div>
-    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="used">Used</button><button class="item-action" type="button" data-action="act">More</button><button class="item-action" type="button" data-action="edit">Edit</button><button class="item-action destructive" type="button" data-action="delete">Delete</button></div>
+    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="used" aria-label="Mark ${escapeHTML(item.name)} as used">Used</button><details class="row-options"><summary aria-label="More options for ${escapeHTML(item.name)}">•••</summary><div class="row-options-panel"><button class="item-action" type="button" data-action="edit">Edit</button><button class="item-action" type="button" data-action="act">Record outcome</button><button class="item-action destructive" type="button" data-action="delete">Delete</button></div></details></div>
   </article>`;
 }
 
@@ -149,7 +150,7 @@ function groceryItemMarkup(item) {
 }
 
 function emptyMarkup(title, message, showAdd = false) {
-  return `<div class="empty-state"><strong>${escapeHTML(title)}</strong><span>${escapeHTML(message)}</span>${showAdd ? '<button class="primary-button add-button" type="button">Add food</button>' : ""}</div>`;
+  return `<div class="empty-state"><strong>${escapeHTML(title)}</strong><span>${escapeHTML(message)}</span>${showAdd ? '<button class="primary-button add-button" type="button">+ Add item</button>' : ""}</div>`;
 }
 
 
@@ -162,7 +163,7 @@ function renderInventory() {
   }
   if (elements.filter.value === "active" && !elements.search.value.trim()) {
     const grouped = groupActiveItems(visible);
-    const labels = { expired: "Expired", soon: "Use in the next 3 days", later: "Later" };
+    const labels = { expired: "Expired", soon: "Use soon", later: "Later" };
     elements.inventoryGroups.innerHTML = ["expired", "soon", "later"].filter((key) => grouped[key].length).map((key) =>
       `<section class="group"><div class="group-title"><h3>${labels[key]}</h3><span>${grouped[key].length} item${grouped[key].length === 1 ? "" : "s"}</span></div><div class="item-list">${grouped[key].map(activeItemMarkup).join("")}</div></section>`
     ).join("");
@@ -538,6 +539,7 @@ async function confirmThaw() {
 
 async function handleItemAction(event) {
   const button = event.target.closest("[data-action]"); if (!button) return;
+  button.closest(".row-options")?.removeAttribute?.("open");
   const item = items.find((entry) => entry.id === button.closest("[data-id]")?.dataset.id); if (!item) return;
   if (button.dataset.action === "edit") { openItemDialog(item); return; }
   if (button.dataset.action === "used") { actionItemId = item.id; await recordOutcome("used"); return; }

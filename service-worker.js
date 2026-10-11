@@ -1,6 +1,6 @@
-const CACHE_NAME = "freshcheck-shell-v10";
+const CACHE_NAME = "freshcheck-shell-v11";
 const APP_SHELL = [
-  "./", "./index.html", "./style.css", "./app.js", "./app.js?v=10", "./utils.js", "./storage.js", "./grocery-data.js",
+  "./", "./index.html", "./style.css", "./style.css?v=11", "./app.js", "./app.js?v=11", "./utils.js", "./storage.js", "./grocery-data.js",
   "./manifest.json", "./vendor/zxing-browser.min.js", "./vendor/ZXING-LICENSE.txt",
   "./icons/logo.png", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
 ];
