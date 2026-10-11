@@ -1,8 +1,9 @@
-const CACHE_NAME = "freshcheck-shell-v11";
+const CACHE_NAME = "freshcheck-shell-v12";
 const APP_SHELL = [
-  "./", "./index.html", "./style.css", "./style.css?v=11", "./app.js", "./app.js?v=11", "./utils.js", "./storage.js", "./grocery-data.js",
-  "./manifest.json", "./vendor/zxing-browser.min.js", "./vendor/ZXING-LICENSE.txt",
-  "./icons/logo.png", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
+  "./", "./index.html", "./style.css", "./style.css?v=12", "./app.js", "./app.js?v=11", "./utils.js", "./storage.js", "./grocery-data.js",
+  "./manifest.json", "./manifest.json?v=12", "./vendor/zxing-browser.min.js", "./vendor/ZXING-LICENSE.txt",
+  "./icons/logo.png", "./icons/logo-folded-check.png", "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png",
+  "./icons/folded-check-180.png", "./icons/folded-check-192.png", "./icons/folded-check-512.png"
 ];
 
 self.addEventListener("install", (event) => {
