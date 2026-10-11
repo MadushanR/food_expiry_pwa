@@ -136,7 +136,7 @@ function historyItemMarkup(item) {
   const quantity = item.quantity == null ? "" : `<span>${escapeHTML(item.quantity)}${item.unit ? ` ${escapeHTML(item.unit)}` : ""}</span>`;
   return `<article class="food-item ${item.status}" data-id="${escapeHTML(item.id)}">
     <div><p class="food-name">${escapeHTML(item.name)}</p><div class="food-meta"><span class="outcome-label">${label}</span><span>${escapeHTML(formatCompleted(item.completedAt))}</span><span>${escapeHTML(item.location)}</span>${quantity}</div></div>
-    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="${restoreAction}" aria-label="${restoreLabel} ${escapeHTML(item.name)}">${restoreLabel}</button><button class="item-action" type="button" data-action="favorite" aria-label="${findMatchingFoodTemplate(item, foodTemplates) ? "Remove" : "Save"} ${escapeHTML(item.name)} ${findMatchingFoodTemplate(item, foodTemplates) ? "from" : "as"} favourites">${findMatchingFoodTemplate(item, foodTemplates) ? "★" : "☆"}</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)} permanently">Delete</button></div>
+    <div class="item-menu"><button class="item-action primary-action" type="button" data-action="${restoreAction}" aria-label="${restoreLabel} ${escapeHTML(item.name)}">${restoreLabel}</button><button class="item-action destructive" type="button" data-action="delete" aria-label="Delete ${escapeHTML(item.name)} permanently">Delete</button></div>
   </article>`;
 }
 
@@ -786,11 +786,14 @@ async function init() {
     db = await openDatabase();
     const migrated = await migrateLegacyItems(db);
     const seeded = await seedGroceryItems(db);
-    bindEvents(); setView("inventory"); await refresh(); await registerServiceWorker();
+    bindEvents(); setView("inventory");
+    await registerServiceWorker(); await refresh();
     if (migrated) showToast(`${migrated} existing item${migrated === 1 ? "" : "s"} safely upgraded`);
     else if (seeded) showToast(`${seeded} regular grocery items added`);
   } catch (error) {
-    elements.inventoryGroups.innerHTML = emptyMarkup("FreshCheck could not open its local database", error.message || "Try closing and reopening the app.");
+    if (!elements.inventoryGroups.innerHTML) {
+      elements.inventoryGroups.innerHTML = emptyMarkup(db ? "FreshCheck could not load this view" : "FreshCheck could not open its local database", error.message || "Try closing and reopening the app.");
+    } else showToast(error.message || "A view could not load. Try closing and reopening the app.");
   }
 }
 
