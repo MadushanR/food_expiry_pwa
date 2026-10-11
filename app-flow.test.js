@@ -6,13 +6,20 @@ import * as utils from "./utils.js";
 
 function appHarness() {
   const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('./app.js', import.meta.url), 'utf8');
+  const importedUtilities = source.match(/import \{([\s\S]*?)\} from "\.\/utils\.js";/)[1]
+    .split(',').map(name => name.trim()).filter(Boolean);
   const ids = new Set([...html.matchAll(/id="([^"]+)"/g)].map((match) => match[1]));
   const nodes = new Map();
   const events = new Map();
   function node(id) {
     assert.ok(ids.has(id), `Missing element ${id}`);
     if (!nodes.has(id)) nodes.set(id, {
-      value: '', checked: false, hidden: false, innerHTML: '', textContent: '', style: {},
+      value: (() => {
+        const select = html.match(new RegExp(`<select id="${id}">([\\s\\S]*?)</select>`));
+        const firstOption = select?.[1].match(/<option(?: value="([^"]*)")?>([^<]*)<\/option>/);
+        return firstOption ? firstOption[1] ?? firstOption[2] : '';
+      })(), checked: false, hidden: false, innerHTML: '', textContent: '', style: {},
       addEventListener(type, handler) { events.set(`${id}:${type}`, handler); },
       showModal() { this.open = true; }, close() { this.open = false; },
       reset() {}, focus() {},
@@ -21,7 +28,7 @@ function appHarness() {
   }
   const foods = new Map(); const groceries = new Map();
   const context = vm.createContext({
-    ...utils, console,
+    ...Object.fromEntries(importedUtilities.map(name => [name, utils[name]])), console,
     document: {
       documentElement: { removeAttribute() {}, dataset: {} },
       querySelector: (selector) => node(selector.slice(1)),
@@ -38,10 +45,10 @@ function appHarness() {
     saveGroceryItem: async (_, item) => groceries.set(item.id, item),
     removeItem: async (_, id) => foods.delete(id), removeGroceryItem: async (_, id) => groceries.delete(id),
   });
-  const source = readFileSync(new URL('./app.js', import.meta.url), 'utf8')
+  const executableSource = source
     .replace(/import \{[\s\S]*?\} from "\.\/(?:utils|storage)\.js";/g, '')
     .replace(/\ninit\(\);\s*$/, '');
-  vm.runInContext(source, context);
+  vm.runInContext(executableSource, context);
   vm.runInContext('bindEvents()', context);
   return { foods, groceries, node, events, run: (code) => vm.runInContext(code, context) };
 }
@@ -97,4 +104,23 @@ test('navigation and add form expose the simplified controls', () => {
   assert.doesNotMatch(html, /data-nav="today"|id="todayView"|id="groceryLink"|id="lowStockThreshold"|id="groceryRestockThreshold"/);
   assert.match(html, /data-nav="inventory" aria-current="page"/);
   appHarness();
+});
+
+test('existing inventory and history render without changing saved records', async () => {
+  const app = appHarness();
+  const records = [
+    utils.normalizeItem({ id: 'active', name: 'Saved milk', expiryDate: '2026-11-01' }),
+    ...['used', 'wasted', 'frozen'].map(status => utils.normalizeItem({
+      id: status, name: `Saved ${status} food`, expiryDate: '2026-11-01', status,
+      completedAt: '2026-10-10T12:00:00.000Z',
+    })),
+  ];
+  for (const record of records) app.foods.set(record.id, record);
+  await app.run('refresh()');
+  assert.match(app.node('inventoryGroups').innerHTML, /Saved milk/);
+  for (const status of ['used', 'wasted', 'frozen']) {
+    assert.match(app.node('historyList').innerHTML, new RegExp(`Saved ${status} food`));
+  }
+  assert.doesNotMatch(app.node('historyList').innerHTML, /data-action="favorite"/);
+  assert.deepEqual([...app.foods.values()], records);
 });
